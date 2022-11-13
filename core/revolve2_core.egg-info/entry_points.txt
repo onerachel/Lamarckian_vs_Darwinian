@@ -1,0 +1,2 @@
+[console_scripts]
+revolve2_plot_ea_fitness_float = revolve2.bin.core.optimization.ea.generic_ea.plot_ea_fitness_float:main
