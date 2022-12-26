@@ -1,54 +1,65 @@
 """Rerun(watch) a modular robot in Isaac Gym."""
 
+from typing import List, Optional, Union
+
 from pyrr import Quaternion, Vector3
-from revolve2.actor_controller import ActorController
 from revolve2.core.modular_robot import ModularRobot
-from revolve2.core.physics.running import ActorControl, Batch, Environment, PosedActor
+from revolve2.core.physics.environment_actor_controller import (
+    EnvironmentActorController,
+)
+from revolve2.core.physics.running import Batch, Environment, PosedActor, RecordSettings
 from revolve2.runners.isaacgym import LocalRunner
 
 
 class ModularRobotRerunner:
-    """Rerunner for a single robot that uses Isaac Gym."""
+    """Rerunner for one or more robots that uses Isaac Gym."""
 
-    _controller: ActorController
-
-    async def rerun(self, robot: ModularRobot, control_frequency: float) -> None:
+    async def rerun(
+        self,
+        robots: Union[ModularRobot, List[ModularRobot]],
+        control_frequency: float,
+        simulation_time: int = 1000000,
+        record_settings: Optional[RecordSettings] = None,
+    ) -> None:
         """
         Rerun a single robot.
 
-        :param robot: The robot the simulate.
+        :param robots: One or more robots to simulate.
         :param control_frequency: Control frequency for the simulation. See `Batch` class from physics running.
+        :param simulation_time: How long to rerun each robot for.
+        :param record_settings: Optional settings for recording the runnings. If None, no recording is made.
         """
+        if isinstance(robots, ModularRobot):
+            robots = [robots]
+
         batch = Batch(
-            simulation_time=1000000,
+            simulation_time=simulation_time,
             sampling_frequency=0.0001,
             control_frequency=control_frequency,
-            control=self._control,
         )
 
-        actor, self._controller = robot.make_actor_and_controller()
-
-        env = Environment()
-        env.actors.append(
-            PosedActor(
-                actor,
-                Vector3([0.0, 0.0, 0.1]),
-                Quaternion(),
-                [0.0 for _ in self._controller.get_dof_targets()],
+        for robot in robots:
+            actor, controller = robot.make_actor_and_controller()
+            bounding_box = actor.calc_aabb()
+            env = Environment(EnvironmentActorController(controller))
+            env.actors.append(
+                PosedActor(
+                    actor,
+                    Vector3(
+                        [
+                            0.0,
+                            0.0,
+                            bounding_box.size.z / 2.0 - bounding_box.offset.z,
+                        ]
+                    ),
+                    Quaternion(),
+                    [0.0 for _ in controller.get_dof_targets()],
+                )
             )
-        )
-        batch.environments.append(env)
+            batch.environments.append(env)
 
-        runner = LocalRunner(
-            sim_params=LocalRunner.SimParams(), headless=False, real_time=True
-        )
-        await runner.run_batch(batch)
-
-    def _control(
-        self, environment_index: int, dt: float, control: ActorControl
-    ) -> None:
-        self._controller.step(dt)
-        control.set_dof_targets(0, self._controller.get_dof_targets())
+        runner = LocalRunner(real_time=True)
+        await runner.run_batch(batch, record_settings=record_settings)
 
 
 if __name__ == "__main__":

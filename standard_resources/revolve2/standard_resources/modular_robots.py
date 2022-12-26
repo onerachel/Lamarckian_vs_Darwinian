@@ -6,7 +6,6 @@ import numpy as np
 from revolve2.core.modular_robot import ActiveHinge, Body, Brick
 
 
-
 def all() -> List[Body]:
     """
     Get a list of all standard module robots.
@@ -34,8 +33,8 @@ def all() -> List[Body]:
         turtle(),
         ww(),
         zappa(),
-        # ant(),
-        # park(),
+        ant(),
+        park(),
     ]
 
 
@@ -812,4 +811,3 @@ def zappa() -> Body:
 
     body.finalize()
     return body
-

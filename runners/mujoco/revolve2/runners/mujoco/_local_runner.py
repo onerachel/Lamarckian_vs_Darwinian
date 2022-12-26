@@ -1,9 +1,14 @@
+import concurrent.futures
 import math
+import os
 import tempfile
-from typing import List
+from typing import List, Optional
 
+import cv2
 import mujoco
 import mujoco_viewer
+import numpy as np
+import numpy.typing as npt
 
 try:
     import logging
@@ -33,6 +38,7 @@ from revolve2.core.physics.running import (
     Environment,
     EnvironmentResults,
     EnvironmentState,
+    RecordSettings,
     Runner,
 )
 
@@ -41,20 +47,168 @@ class LocalRunner(Runner):
     """Runner for simulating using Mujoco."""
 
     _headless: bool
+    _start_paused: bool
+    _num_simulators: int
 
-    def __init__(self, headless: bool = False):
+    def __init__(
+        self,
+        headless: bool = False,
+        start_paused: bool = False,
+        num_simulators: int = 1,
+    ):
         """
         Initialize this object.
 
         :param headless: If True, the simulation will not be rendered. This drastically improves performance.
+        :param start_paused: If True, start the simulation paused. Only possible when not in headless mode.
+        :param num_simulators: The number of simulators to deploy in parallel. They will take one core each but will share space on the main python thread for calculating control.
         """
-        self._headless = headless
+        assert (
+            headless or num_simulators == 1
+        ), "Cannot have parallel simulators when visualizing."
 
-    async def run_batch(self, batch: Batch) -> BatchResults:
+        assert not (
+            headless and start_paused
+        ), "Cannot start simulation paused in headless mode."
+
+        self._headless = headless
+        self._start_paused = start_paused
+        self._num_simulators = num_simulators
+
+    @classmethod
+    def _run_environment(
+        cls,
+        env_index: int,
+        env_descr: Environment,
+        headless: bool,
+        record_settings: Optional[RecordSettings],
+        start_paused: bool,
+        control_step: float,
+        sample_step: float,
+        simulation_time: int,
+    ) -> EnvironmentResults:
+        logging.info(f"Environment {env_index}")
+
+        model = mujoco.MjModel.from_xml_string(cls._make_mjcf(env_descr))
+
+        # TODO initial dof state
+        data = mujoco.MjData(model)
+
+        initial_targets = [
+            dof_state
+            for posed_actor in env_descr.actors
+            for dof_state in posed_actor.dof_states
+        ]
+        cls._set_dof_targets(data, initial_targets)
+
+        for posed_actor in env_descr.actors:
+            posed_actor.dof_states
+
+        if not headless or record_settings is not None:
+            viewer = mujoco_viewer.MujocoViewer(
+                model,
+                data,
+            )
+            viewer._render_every_frame = False  # Private but functionality is not exposed and for now it breaks nothing.
+            viewer._paused = start_paused
+
+        if record_settings is not None:
+            video_step = 1 / record_settings.fps
+            video_file_path = f"{record_settings.video_directory}/{env_index}.mp4"
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            video = cv2.VideoWriter(
+                video_file_path,
+                fourcc,
+                record_settings.fps,
+                (viewer.viewport.width, viewer.viewport.height),
+            )
+
+            viewer._hide_menu = True
+
+        last_control_time = 0.0
+        last_sample_time = 0.0
+        last_video_time = 0.0  # time at which last video frame was saved
+
+        results = EnvironmentResults([])
+
+        # sample initial state
+        results.environment_states.append(
+            EnvironmentState(0.0, cls._get_actor_states(env_descr, data, model))
+        )
+
+        while (time := data.time) < simulation_time:
+            # do control if it is time
+            if time >= last_control_time + control_step:
+                last_control_time = math.floor(time / control_step) * control_step
+                control_user = ActorControl()
+                env_descr.controller.control(control_step, control_user)
+                actor_targets = control_user._dof_targets
+                actor_targets.sort(key=lambda t: t[0])
+                targets = [
+                    target
+                    for actor_target in actor_targets
+                    for target in actor_target[1]
+                ]
+                cls._set_dof_targets(data, targets)
+
+            # sample state if it is time
+            if time >= last_sample_time + sample_step:
+                last_sample_time = int(time / sample_step) * sample_step
+                results.environment_states.append(
+                    EnvironmentState(
+                        time, cls._get_actor_states(env_descr, data, model)
+                    )
+                )
+
+            # step simulation
+            mujoco.mj_step(model, data)
+
+            # render if not headless. also render when recording and if it time for a new video frame.
+            if not headless or (
+                record_settings is not None and time >= last_video_time + video_step
+            ):
+                viewer.render()
+
+            # capture video frame if it's time
+            if record_settings is not None and time >= last_video_time + video_step:
+                last_video_time = int(time / video_step) * video_step
+
+                # https://github.com/deepmind/mujoco/issues/285 (see also record.cc)
+                img: npt.NDArray[np.uint8] = np.empty(
+                    (viewer.viewport.height, viewer.viewport.width, 3),
+                    dtype=np.uint8,
+                )
+
+                mujoco.mjr_readPixels(
+                    rgb=img,
+                    depth=None,
+                    viewport=viewer.viewport,
+                    con=viewer.ctx,
+                )
+                img = np.flip(img, axis=0)  # img is upside down initially
+                video.write(img)
+
+        if not headless or record_settings is not None:
+            viewer.close()
+
+        if record_settings is not None:
+            video.release()
+
+        # sample one final time
+        results.environment_states.append(
+            EnvironmentState(time, cls._get_actor_states(env_descr, data, model))
+        )
+
+        return results
+
+    async def run_batch(
+        self, batch: Batch, record_settings: Optional[RecordSettings] = None
+    ) -> BatchResults:
         """
         Run the provided batch by simulating each contained environment.
 
         :param batch: The batch to run.
+        :param record_settings: Optional settings for recording the runnings. If None, no recording is made.
         :returns: List of simulation states in ascending order of time.
         """
         logging.info("Starting simulation batch with mujoco.")
@@ -62,77 +216,27 @@ class LocalRunner(Runner):
         control_step = 1 / batch.control_frequency
         sample_step = 1 / batch.sampling_frequency
 
-        results = BatchResults([EnvironmentResults([]) for _ in batch.environments])
+        if record_settings is not None:
+            os.makedirs(record_settings.video_directory, exist_ok=False)
 
-        for env_index, env_descr in enumerate(batch.environments):
-            logging.info(f"Environment {env_index}")
-
-            model = mujoco.MjModel.from_xml_string(self._make_mjcf(env_descr))
-
-            # TODO initial dof state
-            data = mujoco.MjData(model)
-
-            initial_targets = [
-                dof_state
-                for posed_actor in env_descr.actors
-                for dof_state in posed_actor.dof_states
-            ]
-            self._set_dof_targets(data, initial_targets)
-
-            for posed_actor in env_descr.actors:
-                posed_actor.dof_states
-
-            if not self._headless:
-                viewer = mujoco_viewer.MujocoViewer(
-                    model,
-                    data,
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=self._num_simulators
+        ) as executor:
+            futures = [
+                executor.submit(
+                    self._run_environment,
+                    env_index,
+                    env_descr,
+                    self._headless,
+                    record_settings,
+                    self._start_paused,
+                    control_step,
+                    sample_step,
+                    batch.simulation_time,
                 )
-
-            last_control_time = 0.0
-            last_sample_time = 0.0
-
-            # sample initial state
-            results.environment_results[env_index].environment_states.append(
-                EnvironmentState(0.0, self._get_actor_states(env_descr, data, model))
-            )
-
-            while (time := data.time) < batch.simulation_time:
-                # do control if it is time
-                if time >= last_control_time + control_step:
-                    last_control_time = math.floor(time / control_step) * control_step
-                    control = ActorControl()
-                    batch.control(env_index, control_step, control)
-                    actor_targets = control._dof_targets
-                    actor_targets.sort(key=lambda t: t[0])
-                    targets = [
-                        target
-                        for actor_target in actor_targets
-                        for target in actor_target[1]
-                    ]
-                    self._set_dof_targets(data, targets)
-
-                # sample state if it is time
-                if time >= last_sample_time + sample_step:
-                    last_sample_time = int(time / sample_step) * sample_step
-                    results.environment_results[env_index].environment_states.append(
-                        EnvironmentState(
-                            time, self._get_actor_states(env_descr, data, model)
-                        )
-                    )
-
-                # step simulation
-                mujoco.mj_step(model, data)
-
-                if not self._headless:
-                    viewer.render()
-
-            if not self._headless:
-                viewer.close()
-
-            # sample one final time
-            results.environment_results[env_index].environment_states.append(
-                EnvironmentState(time, self._get_actor_states(env_descr, data, model))
-            )
+                for env_index, env_descr in enumerate(batch.environments)
+            ]
+            results = BatchResults([future.result() for future in futures])
 
         logging.info("Finished batch.")
 
@@ -177,12 +281,11 @@ class LocalRunner(Runner):
 
             # mujoco can only save to a file, not directly to string,
             # so we create a temporary file.
-            botfile = tempfile.NamedTemporaryFile(
-                mode="r+", delete=False, suffix=".urdf"
-            )
-            mujoco.mj_saveLastXML(botfile.name, model)
-            robot = mjcf.from_file(botfile)
-            botfile.close()
+            with tempfile.NamedTemporaryFile(
+                mode="r+", delete=True, suffix="_mujoco.urdf"
+            ) as botfile:
+                mujoco.mj_saveLastXML(botfile.name, model)
+                robot = mjcf.from_file(botfile)
 
             for joint in posed_actor.actor.joints:
                 robot.actuator.add(

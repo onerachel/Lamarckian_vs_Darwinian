@@ -1,7 +1,0 @@
-Metadata-Version: 2.1
-Name: revolve2-runners-isaacgym
-Version: 0.3.1b1
-Summary: Isaac Gym runner for Revolve2
-Home-page: https://github.com/ci-group/revolve2
-Author: Computational Intelligence Group Vrije Universiteit
-Provides-Extra: dev

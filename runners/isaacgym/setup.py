@@ -9,7 +9,7 @@ revolve2_path = pathlib.Path(__file__).parent.parent.parent.resolve()
 
 setup(
     name="revolve2-runners-isaacgym",
-    version="0.3.1-beta1",
+    version="0.3.6-beta1",
     description="Isaac Gym runner for Revolve2",
     author="Computational Intelligence Group Vrije Universiteit",
     url="https://github.com/ci-group/revolve2",
@@ -20,7 +20,7 @@ setup(
     },
     install_requires=[
         f"revolve2-core @ file://{os.path.join(revolve2_path, 'core')}",
-        "isaacgym==1.0rc3",
+        "isaacgym==1.0rc4",
         "colored>=1.4.3",
     ],
     extras_require={"dev": []},

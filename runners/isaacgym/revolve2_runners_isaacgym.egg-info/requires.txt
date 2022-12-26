@@ -1,5 +1,0 @@
-revolve2-core@ file:///Users/lj/revolve2/core
-isaacgym==1.0rc3
-colored>=1.4.3
-
-[dev]

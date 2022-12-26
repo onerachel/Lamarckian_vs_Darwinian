@@ -4,7 +4,7 @@ import multiprocessing as mp
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 import colored
 import numpy as np
@@ -19,8 +19,32 @@ from revolve2.core.physics.running import (
     BatchResults,
     EnvironmentResults,
     EnvironmentState,
+    RecordSettings,
     Runner,
 )
+
+from .terrains import flat_terrain_generator
+
+
+def default_sim_params() -> gymapi.SimParams:
+    """
+    Get default Isaac Gym parameters.
+
+    :returns: The parameters.
+    """
+    sim_params = gymapi.SimParams()
+    sim_params.dt = 0.02
+    sim_params.substeps = 2
+    sim_params.up_axis = gymapi.UP_AXIS_Z
+    sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.81)
+
+    sim_params.physx.solver_type = 1
+    sim_params.physx.num_position_iterations = 4
+    sim_params.physx.num_velocity_iterations = 1
+    sim_params.physx.num_threads = 1
+    sim_params.physx.use_gpu = True
+
+    return sim_params
 
 
 class LocalRunner(Runner):
@@ -60,17 +84,18 @@ class LocalRunner(Runner):
         def __init__(
             self,
             batch: Batch,
-            sim_params: gymapi.SimParams,
             headless: bool,
             real_time: bool,
             max_gpu_contact_pairs: int,
+            terrain_generator: Callable[[gymapi.Gym, gymapi.Sim], None],
+            sim_params: gymapi.SimParams,
         ):
             self._gym = gymapi.acquire_gym()
             self._batch = batch
 
             sim_params.physx.max_gpu_contact_pairs = max_gpu_contact_pairs
             self._sim = self._create_sim(sim_params)
-            self._gymenvs = self._create_envs()
+            self._gymenvs = self._create_envs(terrain_generator)
 
             if headless:
                 self._viewer = None
@@ -89,19 +114,12 @@ class LocalRunner(Runner):
 
             return sim
 
-        def _create_envs(self) -> List[GymEnv]:
+        def _create_envs(
+            self, terrain_generator: Callable[[gymapi.Gym, gymapi.Sim], None]
+        ) -> List[GymEnv]:
             gymenvs: List[LocalRunner._Simulator.GymEnv] = []
 
-            # TODO this is only temporary. When we switch to the new isaac sim it should be easily possible to
-            # let the user create static object, rendering the group plane redundant.
-            # But for now we keep it because it's easy for our first test release.
-            plane_params = gymapi.PlaneParams()
-            plane_params.normal = gymapi.Vec3(0, 0, 1)
-            plane_params.distance = 0
-            plane_params.static_friction = 1.0
-            plane_params.dynamic_friction = 1.0
-            plane_params.restitution = 0
-            self._gym.add_ground(self._sim, plane_params)
+            terrain_generator(self._gym, self._sim)
 
             num_per_row = int(math.sqrt(len(self._batch.environments)))
 
@@ -119,26 +137,25 @@ class LocalRunner(Runner):
                 for actor_index, posed_actor in enumerate(env_descr.actors):
                     # sadly isaac gym can only read robot descriptions from a file,
                     # so we create a temporary file.
-                    botfile = tempfile.NamedTemporaryFile(
-                        mode="r+", delete=False, suffix=".urdf"
-                    )
-                    botfile.writelines(
-                        physbot_to_urdf(
-                            posed_actor.actor,
-                            f"robot_{actor_index}",
-                            Vector3(),
-                            Quaternion(),
+                    with tempfile.NamedTemporaryFile(
+                        mode="r+", delete=True, suffix="_isaacgym.urdf"
+                    ) as botfile:
+                        botfile.writelines(
+                            physbot_to_urdf(
+                                posed_actor.actor,
+                                f"robot_{actor_index}",
+                                Vector3(),
+                                Quaternion(),
+                            )
                         )
-                    )
-                    botfile.close()
-                    asset_root = os.path.dirname(botfile.name)
-                    urdf_file = os.path.basename(botfile.name)
-                    asset_options = gymapi.AssetOptions()
-                    asset_options.angular_damping = 0.0
-                    actor_asset = self._gym.load_urdf(
-                        self._sim, asset_root, urdf_file, asset_options
-                    )
-                    os.remove(botfile.name)
+                        botfile.flush()
+                        asset_root = os.path.dirname(botfile.name)
+                        urdf_file = os.path.basename(botfile.name)
+                        asset_options = gymapi.AssetOptions()
+                        asset_options.angular_damping = 0.0
+                        actor_asset = self._gym.load_urdf(
+                            self._sim, asset_root, urdf_file, asset_options
+                        )
 
                     if actor_asset is None:
                         raise RuntimeError()
@@ -243,8 +260,9 @@ class LocalRunner(Runner):
                 if time >= last_control_time + control_step:
                     last_control_time = math.floor(time / control_step) * control_step
                     controls = [ActorControl() for _ in self._batch.environments]
-                    for i, control in enumerate(controls):
-                        self._batch.control(i, control_step, control)
+                    for control, env in zip(controls, self._batch.environments):
+                        env.controller.control(control_step, control)
+
                     dof_targets = [
                         (env_index, actor_index, targets)
                         for env_index, control in enumerate(controls)
@@ -369,55 +387,47 @@ class LocalRunner(Runner):
     _headless: bool
     _real_time: bool
     _max_gpu_contact_pairs: int
+    _terrain_generator: Callable[[gymapi.Gym, gymapi.Sim], None]
 
     def __init__(
         self,
-        sim_params: gymapi.SimParams,
         headless: bool = False,
         real_time: bool = False,
         max_gpu_contact_pairs: int = 1048576,
+        terrain_generator: Callable[
+            [gymapi.Gym, gymapi.Sim], None
+        ] = flat_terrain_generator,
+        sim_params: gymapi.SimParams = default_sim_params(),
     ):
         """
         Initialize this object.
 
-        :param sim_params: Isaac Gym specific simulation parameters. Default parameters are provided using the `SimParams` method.
         :param headless: If True, the simulation will not be rendered. This drastically improves performance.
         :param real_time: If True, the simulation will run in real-time.
         :param max_gpu_contact_pairs: Maximum number of contacts that can be stored by Isaac Gym. If you get a warning similar to "The application needs to increase PxgDynamicsMemoryConfig::foundLostAggregatePairsCapacity" you need to increase this parameter.
+        :param terrain_generator: Function to generate terrain.
+        :param sim_params: Isaac Gym specific simulation parameters. Default parameters are provided using the `default_sim_params` method.
         """
-        self._sim_params = sim_params
         self._headless = headless
         self._real_time = real_time
         self._max_gpu_contact_pairs = max_gpu_contact_pairs
+        self._terrain_generator = terrain_generator
+        self._sim_params = sim_params
 
-    @staticmethod
-    def SimParams() -> gymapi.SimParams:
-        """
-        Get default Isaac Gym parameters.
-
-        :returns: The parameters.
-        """
-        sim_params = gymapi.SimParams()
-        sim_params.dt = 0.02
-        sim_params.substeps = 2
-        sim_params.up_axis = gymapi.UP_AXIS_Z
-        sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.81)
-
-        sim_params.physx.solver_type = 1
-        sim_params.physx.num_position_iterations = 4
-        sim_params.physx.num_velocity_iterations = 1
-        sim_params.physx.num_threads = 1
-        sim_params.physx.use_gpu = True
-
-        return sim_params
-
-    async def run_batch(self, batch: Batch) -> BatchResults:
+    async def run_batch(
+        self, batch: Batch, record_settings: Optional[RecordSettings] = None
+    ) -> BatchResults:
         """
         Run the provided batch by simulating each contained environment.
 
         :param batch: The batch to run.
+        :param record_settings: Optional settings for recording the runnings. If None, no recording is made.
         :returns: List of simulation states in ascending order of time.
+        :raises NotImplementedError: Video recording is not yet supported.
         """
+        if record_settings is not None:
+            raise NotImplementedError()  # TODO
+
         logging.info(
             "\n--- Begin Isaac Gym log ----------------------------------------------------------------------------"
         )
@@ -429,10 +439,11 @@ class LocalRunner(Runner):
             args=(
                 result_queue,
                 batch,
-                self._sim_params,
                 self._headless,
                 self._real_time,
                 self._max_gpu_contact_pairs,
+                self._terrain_generator,
+                self._sim_params,
             ),
         )
         process.start()
@@ -456,13 +467,19 @@ class LocalRunner(Runner):
         cls,
         result_queue: mp.Queue,  # type: ignore # TODO
         batch: Batch,
-        sim_params: gymapi.SimParams,
         headless: bool,
         real_time: bool,
         max_gpu_contact_pairs: int,
+        terrain_generator: Callable[[gymapi.Gym, gymapi.Sim], None],
+        sim_params: gymapi.SimParams,
     ) -> None:
         _Simulator = cls._Simulator(
-            batch, sim_params, headless, real_time, max_gpu_contact_pairs
+            batch=batch,
+            headless=headless,
+            real_time=real_time,
+            max_gpu_contact_pairs=max_gpu_contact_pairs,
+            terrain_generator=terrain_generator,
+            sim_params=sim_params,
         )
         batch_results = _Simulator.run()
         _Simulator.cleanup()
