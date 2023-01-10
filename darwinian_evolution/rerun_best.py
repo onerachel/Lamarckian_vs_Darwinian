@@ -12,14 +12,13 @@ from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.future import select
 from revolve2.core.optimization.ea.generic_ea._database import (
     DbBase,
-    DbEAOptimizerIndividual,
 )
+from _optimizer import DbEAOptimizerIndividual
 from genotype import DbGenotype, GenotypeSerializer, Genotype
 from revolve2.core.database.serializers import FloatSerializer
 from array_genotype.array_genotype import ArrayGenotypeSerializer as BrainSerializer, develop as brain_develop
 from revolve2.genotypes.cppnwin.modular_robot.body_genotype_v1 import develop_v1 as body_develop
 from revolve2.genotypes.cppnwin._genotype import GenotypeSerializer as BodySerializer
-
 
 async def main() -> None:
 
@@ -29,16 +28,22 @@ async def main() -> None:
         individuals = (
             (
                 await session.execute(
-                    select(DbEAOptimizerIndividual.genotype_id, DbEAOptimizerIndividual.fitness_id)
+                    select(DbEAOptimizerIndividual.genotype_id, DbEAOptimizerIndividual.final_fitness_id,
+                    DbEAOptimizerIndividual.absolute_size, DbEAOptimizerIndividual.proportion, DbEAOptimizerIndividual.num_bricks,
+                    DbEAOptimizerIndividual.rel_num_limbs, DbEAOptimizerIndividual.symmetry, DbEAOptimizerIndividual.branching
+                    )
                 )
             )
             .all()
         )
 
-        fitnesses_ids = [ind.fitness_id for ind in individuals]
+        fitnesses_ids = [ind.final_fitness_id for ind in individuals]
         fitnesses = np.array([(await FloatSerializer.from_database(session, [id]))[0] for id in fitnesses_ids])
         max_id = np.argsort(fitnesses)[-1]
         print(f"Fitness: {np.max(fitnesses)}")
+        ind = individuals[max_id]
+        print(f'abs_size: {ind.absolute_size}, proportion: {ind.proportion}, num_bricks: {ind.num_bricks}')
+        print(f'rel_num_limbs: {ind.rel_num_limbs}, symmetry: {ind.symmetry}, branching: {ind.branching}')
 
         genotype_id = individuals[max_id][0]
         genotype_db = (

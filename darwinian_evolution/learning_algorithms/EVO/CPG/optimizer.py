@@ -87,9 +87,6 @@ class Optimizer(RevDEOptimizer):
         initial_population = nprng.standard_normal((population_size, self._cpg_network_structure.num_connections))
 
         await super().ainit_new(
-            database=database,
-            session=session,
-            db_id=db_id,
             rng=rng,
             population_size=population_size,
             initial_population=initial_population,
@@ -170,8 +167,6 @@ class Optimizer(RevDEOptimizer):
 
     async def _evaluate_population(
         self,
-        database: AsyncEngine,
-        db_id: DbId,
         population: npt.NDArray[np.float_],
     ) -> npt.NDArray[np.float_]:
         batch = Batch(
@@ -233,28 +228,42 @@ class Optimizer(RevDEOptimizer):
     @staticmethod
     def _calculate_point_navigation(results, targets) -> float:
         trajectory = [(0.0, 0.0)] + targets
-        distances = [compute_distance(trajectory[i], trajectory[i-1]) for i in range(1, len(trajectory))]
-        target_range = 0.2
+        distances = []
+        target_range = 0.1
         reached_target_counter = 0
 
         coordinates = [env_state.actor_states[0].position[:2] for env_state in results.environment_states]
-        for state in coordinates:
+        path_length = [compute_distance(coordinates[i-1], coordinates[i]) for i in range(1,len(coordinates))]
+        starting_point = 0
+        for idx, state in enumerate(coordinates[1:]):
             if reached_target_counter < len(targets) and check_target(state, targets[reached_target_counter], target_range):
+                distances.append(sum(path_length[:idx]) - sum(path_length[:starting_point]))
                 reached_target_counter += 1
+                starting_point = idx
         
-        fitness = sum(distances[:reached_target_counter])
+        fitness = reached_target_counter * math.sqrt(2)
+        if reached_target_counter > 0:
+            fitness /= sum(distances)
 
         if reached_target_counter == len(targets):
             return fitness
         else:
-            if reached_target_counter == 0:
-                last_target = (0.0, 0.0)
-            else:
-                last_target = trajectory[reached_target_counter]
-            last_coord = coordinates[-1]
-            distance = compute_distance(targets[reached_target_counter], last_target)
-            distance -= compute_distance(targets[reached_target_counter], last_coord)
-            return fitness + distance
+            delta = math.atan2(coordinates[-1][1], coordinates[-1][0])
+            target_direction = math.atan2(targets[reached_target_counter][1], targets[reached_target_counter][0])
+            theta = abs(delta - target_direction)
+            gamma = compute_distance(coordinates[-1], coordinates[starting_point])
+            alpha = gamma * math.sin(theta)
+            beta = gamma * math.cos(theta)
+            # check to prevent that the robot goes further than the target
+            if beta > math.sqrt(2):
+                beta = math.sqrt(2)
+            path_len = sum(path_length) - sum(path_length[:starting_point])
+            omega = 0.01
+            epsilon = 10e-10
+
+            fitness += (abs(beta)/(path_len + epsilon)) * (beta/(math.degrees(theta) + 1.0) - omega * alpha)
+
+            return fitness
 
     @staticmethod
     def _calculate_panoramic_rotation(results, vertical_angle_limit = math.pi/4) -> float:

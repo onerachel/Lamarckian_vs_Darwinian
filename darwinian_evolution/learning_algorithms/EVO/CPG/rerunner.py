@@ -27,7 +27,7 @@ class ModularRobotRerunner:
 
         actor, self._controller = robot.make_actor_and_controller()
 
-        env = Environment(EnvironmentActorController(self._controller, [(-1.0, -0.5), (-1.5, -0.5), (-1.5, 1.0)], steer=True))
+        env = Environment(EnvironmentActorController(self._controller, [(1.0, -1.0), (0.0, -2.0)], steer=True))
         bounding_box = actor.calc_aabb()
         env.actors.append(
             PosedActor(

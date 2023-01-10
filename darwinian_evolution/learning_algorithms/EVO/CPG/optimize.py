@@ -30,9 +30,6 @@ async def main(body, gen, num) -> None:
     SAMPLING_FREQUENCY = 5
     CONTROL_FREQUENCY = 5
 
-    # database
-    database = open_async_database_sqlite('database/morph/gen_' + str(gen) + '/database_' + str(num), create=True)
-
     fileh = logging.FileHandler("database/exp.log")
     formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] [%(module)s] %(message)s")
     fileh.setFormatter(formatter)
@@ -47,60 +44,27 @@ async def main(body, gen, num) -> None:
     rng = Random()
     rng.seed(42)
 
-    # unique database identifier for optimizer
-    db_id = DbId.root('controllerlearning')
-
-    maybe_optimizer = await Optimizer.from_database(
-        database=database,
-        db_id=db_id,
+    optimizer = await Optimizer.new(
+        database=None,
+        db_id=None,
         rng=rng,
+        population_size=POPULATION_SIZE,
         robot_body=body,
         simulation_time=SIMULATION_TIME,
         sampling_frequency=SAMPLING_FREQUENCY,
         control_frequency=CONTROL_FREQUENCY,
         num_generations=NUM_GENERATIONS,
-    )
-    if maybe_optimizer is not None:
-        optimizer = maybe_optimizer
-    else:
-        optimizer = await Optimizer.new(
-            database=database,
-            db_id=db_id,
-            rng=rng,
-            population_size=POPULATION_SIZE,
-            robot_body=body,
-            simulation_time=SIMULATION_TIME,
-            sampling_frequency=SAMPLING_FREQUENCY,
-            control_frequency=CONTROL_FREQUENCY,
-            num_generations=NUM_GENERATIONS,
-            scaling=SCALING,
-            cross_prob=CROSS_PROB,
+        scaling=SCALING,
+        cross_prob=CROSS_PROB,
         )
 
     logging.info("Starting controller optimization process..")
 
-    await optimizer.run()
+    final_controller, final_fitness, starting_fitness = await optimizer.run()
 
     logging.info("Finished optimizing controller.")
 
-    async with AsyncSession(database) as session:
-        best_individual = (
-            (
-                await session.execute(
-                    select(DbRevDEOptimizerBestIndividual).order_by(
-                        DbRevDEOptimizerBestIndividual.fitness.desc()
-                    )
-                )
-            )
-            .scalars()
-            .all()[0]
-        )
-
-        best_fitness = best_individual.fitness
-        best_individual_id = best_individual.individual
-        best_params = (await Ndarray1xnSerializer.from_database(session, [best_individual_id]))[0]
-
-        return best_params, best_fitness
+    return final_controller, final_fitness, starting_fitness
 
 
 if __name__ == "__main__":

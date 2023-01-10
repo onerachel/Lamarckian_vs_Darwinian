@@ -41,6 +41,7 @@ from revolve2.core.physics.environment_actor_controller import (
 from config import *
 import logging
 
+
 class Optimizer(EAOptimizer[Genotype, float]):
     """
     Optimizer for the problem.
@@ -217,21 +218,9 @@ class Optimizer(EAOptimizer[Genotype, float]):
         self,
         old_individuals: List[Genotype],
         old_fitnesses: List[float],
-        new_individuals: List[Genotype],
-        new_fitnesses: List[float],
         num_survivors: int,
     ) -> Tuple[List[int], List[int]]:
-        assert len(old_individuals) == num_survivors
-
-        return population_management.steady_state(
-            old_individuals,
-            old_fitnesses,
-            new_individuals,
-            new_fitnesses,
-            lambda num_survivors, genotypes, fitnesses: selection.topn(
-                    num_survivors, genotypes,fitnesses
-            ),
-        )
+        return selection.topn(num_survivors, old_individuals, old_fitnesses)
 
     def _must_do_next_gen(self) -> bool:
         return self.generation_index != self._num_generations
@@ -255,7 +244,8 @@ class Optimizer(EAOptimizer[Genotype, float]):
             control_frequency=self._control_frequency,
         )
 
-        fitnesses = []
+        final_fitnesses = []
+        starting_fitnesses = []
 
         body_genotypes = [genotype.body for genotype in genotypes]
         brain_genotypes = [genotype.brain.genotype for genotype in genotypes]
@@ -263,16 +253,18 @@ class Optimizer(EAOptimizer[Genotype, float]):
         for body_num, (body_genotype, brain_genotype) in enumerate(zip(body_genotypes, brain_genotypes)):
             body = body_develop(body_genotype)
             logging.info("Starting optimization of the controller for morphology num: " + str(body_num))
-            fitness = 0.0
+            final_fitness = 0.0
+            starting_fitness = 0.0
             # check that the morphology has at least one active hinge. Otherwise the maximum fitness is 0
             if len(body.find_active_hinges()) <= 0:
                 logging.info("Morphology num " + str(body_num) + " has no active hinges")
             else:
-                params, fitness = await learn_controller(body, self.generation_index, body_num)
+                params, final_fitness, starting_fitness = await learn_controller(body, self.generation_index, body_num)
                 genotypes[body_num].brain.genotype = params
-            fitnesses.append(fitness)
+            final_fitnesses.append(final_fitness)
+            starting_fitnesses.append(starting_fitness)
 
-        return fitnesses, genotypes
+        return (starting_fitnesses, final_fitnesses), genotypes
 
     @staticmethod
     def _calculate_fitness(begin_state: ActorState, end_state: ActorState) -> float:

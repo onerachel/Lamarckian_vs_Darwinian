@@ -10,9 +10,9 @@ from sqlalchemy.future import select
 from revolve2.core.optimization.ea.generic_ea._database import (
     DbBase,
     DbEAOptimizer,
-    DbEAOptimizerIndividual,
     DbEAOptimizerGeneration
 )
+from _optimizer import DbEAOptimizerIndividual
 from revolve2.core.database.serializers import FloatSerializer, DbFloat
 from matplotlib import pyplot as plt
 from revolve2.core.optimization import DbId
@@ -33,7 +33,7 @@ def plot(database: str, db_id: DbId) -> None:
             (DbEAOptimizer.db_id == db_id.fullname)
             & (DbEAOptimizerGeneration.ea_optimizer_id == DbEAOptimizer.id)
             & (DbEAOptimizerIndividual.ea_optimizer_id == DbEAOptimizer.id)
-            & (DbEAOptimizerIndividual.fitness_id == DbFloat.id)
+            & (DbEAOptimizerIndividual.final_fitness_id == DbFloat.id)
             & (
                 DbEAOptimizerGeneration.individual_id
                 == DbEAOptimizerIndividual.individual_id

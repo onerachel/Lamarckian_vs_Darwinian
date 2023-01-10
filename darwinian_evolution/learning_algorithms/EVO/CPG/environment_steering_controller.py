@@ -31,7 +31,7 @@ class EnvironmentActorController(EnvironmentController):
             self.target_points = target_points
             self.reached_target_counter = 0
             self.target_range = 0.1
-            self.n = 1
+            self.n = 7
 
     def control(self, dt: float, actor_control: ActorControl, coordinates=None, current_pos=None) -> None:
         """

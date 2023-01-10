@@ -4,7 +4,7 @@ import pickle
 from abc import ABC, abstractmethod
 from mimetypes import init
 from random import Random
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -33,8 +33,6 @@ class RevDEOptimizer(ABC, Process):
     @abstractmethod
     async def _evaluate_population(
         self,
-        database: AsyncEngine,
-        db_id: DbId,
         population: npt.NDArray[np.float_],
     ) -> npt.NDArray[np.float_]:
         """
@@ -54,10 +52,6 @@ class RevDEOptimizer(ABC, Process):
         :returns: True if it must.
         """
 
-    __database: AsyncEngine
-    __db_id: DbId
-    __ea_optimizer_id: int
-
     __rng: Random
 
     __population_size: int
@@ -72,9 +66,6 @@ class RevDEOptimizer(ABC, Process):
 
     async def ainit_new(
         self,
-        database: AsyncEngine,
-        session: AsyncSession,
-        db_id: DbId,
         rng: Random,
         population_size: int,
         initial_population: List[np.float_],
@@ -95,8 +86,6 @@ class RevDEOptimizer(ABC, Process):
         :param learning_rate: Gain factor for the directional vector. OpenAI ES parameter.
         :param initial_mean: Nx1 array. Initial guess. OpenAI ES Parameter.
         """
-        self.__database = database
-        self.__db_id = db_id
         self.__rng = rng
 
         self.__population_size = population_size
@@ -114,25 +103,8 @@ class RevDEOptimizer(ABC, Process):
 
         self.__R = np.expand_dims(R, 0)
 
-        await (await session.connection()).run_sync(DbBase.metadata.create_all)
-        await Ndarray1xnSerializer.create_tables(session)
-        await FloatSerializer.create_tables(session)
-
-        dbopt = DbRevDEOptimizer(
-            db_id=db_id.fullname,
-            population_size=self.__population_size,
-            initial_rng=pickle.dumps(self.__rng.getstate()),
-            scaling=scaling,
-            cross_prob=cross_prob,
-        )
-        session.add(dbopt)
-        await session.flush()
-        assert dbopt.id is not None  # this is impossible because it's not nullable
-        self.__ea_optimizer_id = dbopt.id
-
     async def ainit_from_database(
         self,
-        database: AsyncEngine,
         session: AsyncSession,
         db_id: DbId,
         rng: Random,
@@ -149,190 +121,22 @@ class RevDEOptimizer(ABC, Process):
         :returns: True if the complete object could be deserialized from the database.
         :raises IncompatibleError: In case the database is not compatible with this class.
         """
-        self.__database = database
-        self.__db_id = db_id
+        return False
 
-        try:
-            opt_row = (
-                (
-                    await session.execute(
-                        select(DbRevDEOptimizer).filter(
-                            DbRevDEOptimizer.db_id == self.__db_id.fullname
-                        )
-                    )
-                )
-                .scalars()
-                .one()
-            )
-        except MultipleResultsFound as err:
-            raise IncompatibleError() from err
-        except (NoResultFound, OperationalError):
-            return False
-
-        self.__ea_optimizer_id = opt_row.id
-        self.__population_size = opt_row.population_size
-        self.__scaling = opt_row.scaling
-        self.__cross_prob = opt_row.cross_prob
-
-        R = np.asarray([[1, self.__scaling, -self.__scaling],
-                        [-self.__scaling, 1. - self.__scaling ** 2, self.__scaling + self.__scaling ** 2],
-                        [self.__scaling + self.__scaling ** 2, -self.__scaling + self.__scaling ** 2 + self.__scaling ** 3, 1. - 2. * self.__scaling ** 2 - self.__scaling ** 3]])
-
-        self.__R = np.expand_dims(R, 0)
-
-        db_state = (
-            (
-                await session.execute(
-                    select(DbRevDEOptimizerState)
-                    .filter(DbRevDEOptimizerState.ea_optimizer_id == self.__ea_optimizer_id)
-                    .order_by(DbRevDEOptimizerState.gen_num.desc())
-                )
-            )
-            .scalars()
-            .first()
-        )
-
-        self.__rng = rng  # set state from database below
-
-        self.__gen_num = db_state.gen_num
-        self.__rng.setstate(pickle.loads(db_state.rng))
-
-        gen_rows = (
-            (
-                await session.execute(
-                    select(DbRevDEOptimizerGeneration)
-                    .filter(
-                        (
-                            DbRevDEOptimizerGeneration.ea_optimizer_id
-                            == self.__ea_optimizer_id
-                        )
-                        & (
-                            DbRevDEOptimizerGeneration.gen_num
-                            == self.__gen_num
-                        )
-                    )
-                    .order_by(DbRevDEOptimizerGeneration.gen_index)
-                )
-            )
-            .scalars()
-            .all()
-        )
-
-        generation_ids = [row.individual_id for row in gen_rows]
-
-        individual_rows = (
-            (
-                await session.execute(
-                    select(DbRevDEOptimizerBestIndividual).filter(
-                        (
-                            DbRevDEOptimizerBestIndividual.ea_optimizer_id
-                            == self.__ea_optimizer_id
-                        )
-                        & (DbRevDEOptimizerBestIndividual.individual.in_(generation_ids))
-                    )
-                )
-            )
-            .scalars()
-            .all()
-        )
-        individual_ids = [row.individual for row in individual_rows]
-
-        individuals = [(await Ndarray1xnSerializer.from_database(session, [id]))[0] for id in individual_ids]
-        self.__latest_population = np.array(individuals)
-        fitnesses = [i.fitness for i in individual_rows]
-        self.__latest_fitnesses = np.array(fitnesses)
-
-        if not len(individual_ids) == len(individual_rows):
-            raise IncompatibleError()
-
-        self.__gen_num += 1
-
-        return True
-
-    async def run(self) -> None:
+    async def run(self) -> Tuple[npt.NDArray[np.float_], float]:
         """Run the optimizer."""
         if self.generation_number == 0:
             fitnesses = await self._evaluate_population(
-                self.__database,
-                self.__db_id.branch(f"evaluate{self.__gen_num}"),
                 self.__latest_population,
             )
             assert fitnesses.shape == (len(self.__latest_population),)
             self.__latest_fitnesses = fitnesses
-            
-            async with AsyncSession(self.__database) as session:
-                async with session.begin():
+            self.__gen_num += 1
 
-                    # save current optimizer state
-                    session.add(
-                        DbRevDEOptimizerState(
-                            ea_optimizer_id=self.__ea_optimizer_id,
-                            gen_num=self.__gen_num,
-                            rng=pickle.dumps(self.__rng.getstate()),
-                        )
-                    )
-
-                    # save new individuals
-                    db_individual_ids = []
-                    for ind in self.__latest_population:
-                        id = await Ndarray1xnSerializer.to_database(
-                            session, [ind]
-                        )
-                        db_individual_ids += id
-                    assert len(db_individual_ids) == len(self.__latest_population)
-
-                    session.add_all(
-                        [
-                            DbRevDEOptimizerIndividual(
-                                ea_optimizer_id=self.__ea_optimizer_id,
-                                gen_num=self.__gen_num,
-                                gen_index=index,
-                                individual=id,
-                                fitness=fitness,
-                            )
-                        for index, id, fitness in zip(
-                            range(len(self.__latest_population)), db_individual_ids, self.__latest_fitnesses
-                        )
-                        ]
-                    )
-
-                    # save current generation for revovery
-                    db_generation_ids = []
-                    for ind in self.__latest_population:
-                        id = await Ndarray1xnSerializer.to_database(
-                            session, [ind]
-                        )
-                        db_generation_ids += id
-                    assert len(db_generation_ids) == len(self.__latest_population)
-
-                    session.add_all(
-                        [
-                            DbRevDEOptimizerBestIndividual(
-                                ea_optimizer_id=self.__ea_optimizer_id,
-                                gen_num=self.__gen_num,
-                                gen_index=index,
-                                individual=id,
-                                fitness=fitness,
-                            )
-                        for index, id, fitness in zip(
-                            range(len(self.__latest_population)), db_generation_ids, self.__latest_fitnesses
-                        )
-                        ]
-                    )
-
-                    session.add_all(
-                        [
-                            DbRevDEOptimizerGeneration(
-                                ea_optimizer_id=self.__ea_optimizer_id,
-                                gen_num=self.__gen_num,
-                                gen_index=index,
-                                individual_id=individual_id,
-                            )
-                            for index, individual_id in enumerate(db_generation_ids)
-                        ]
-                    )
-                    logging.info(f"Finished controller generation {self.__gen_num}")
-                    self.__gen_num += 1
+            max_idx = np.argmax(self.__latest_fitnesses)
+            best_controller = self.__latest_population[max_idx]
+            max_fitness = self.__latest_fitnesses[max_idx]
+            initial_fitness = max_fitness
 
         while self.__safe_must_do_next_gen():
             rng = np.random.Generator(
@@ -342,8 +146,6 @@ class RevDEOptimizer(ABC, Process):
             candidates = self.proposal(self.__latest_population)
 
             fitnesses = await self._evaluate_population(
-                self.__database,
-                self.__db_id.branch(f"evaluate{self.__gen_num}"),
                 candidates,
             )
 
@@ -353,79 +155,13 @@ class RevDEOptimizer(ABC, Process):
             self.__latest_population = full_candidates[indexes,:]
             self.__latest_fitnesses = full_fitnesses[indexes]
 
-            async with AsyncSession(self.__database) as session:
-                async with session.begin():
+            max_idx = np.argmax(self.__latest_fitnesses)
+            best_controller = self.__latest_population[max_idx]
+            max_fitness = self.__latest_fitnesses[max_idx]
 
-                    # save current optimizer state
-                    session.add(
-                        DbRevDEOptimizerState(
-                            ea_optimizer_id=self.__ea_optimizer_id,
-                            gen_num=self.__gen_num,
-                            rng=pickle.dumps(self.__rng.getstate()),
-                        )
-                    )
+            self.__gen_num += 1
 
-                    # save new individuals
-                    db_individual_ids = []
-                    for ind in candidates:
-                        id = await Ndarray1xnSerializer.to_database(
-                            session, [ind]
-                        )
-                        db_individual_ids += id
-                    assert len(db_individual_ids) == len(candidates)
-
-                    session.add_all(
-                        [
-                            DbRevDEOptimizerIndividual(
-                                ea_optimizer_id=self.__ea_optimizer_id,
-                                gen_num=self.__gen_num,
-                                gen_index=index,
-                                individual=id,
-                                fitness=fitness,
-                            )
-                        for index, id, fitness in zip(
-                            range(len(candidates)), db_individual_ids, full_fitnesses
-                        )
-                        ]
-                    )
-
-                    # save current generation for revovery
-                    db_generation_ids = []
-                    for ind in self.__latest_population:
-                        id = await Ndarray1xnSerializer.to_database(
-                            session, [ind]
-                        )
-                        db_generation_ids += id
-                    assert len(db_generation_ids) == len(self.__latest_population)
-
-                    session.add_all(
-                        [
-                            DbRevDEOptimizerBestIndividual(
-                                ea_optimizer_id=self.__ea_optimizer_id,
-                                gen_num=self.__gen_num,
-                                gen_index=index,
-                                individual=id,
-                                fitness=fitness,
-                            )
-                        for index, id, fitness in zip(
-                            range(len(candidates)), db_generation_ids, self.__latest_fitnesses
-                        )
-                        ]
-                    )
-
-                    session.add_all(
-                        [
-                            DbRevDEOptimizerGeneration(
-                                ea_optimizer_id=self.__ea_optimizer_id,
-                                gen_num=self.__gen_num,
-                                gen_index=index,
-                                individual_id=individual_id,
-                            )
-                            for index, individual_id in enumerate(db_generation_ids)
-                        ]
-                    )
-                    logging.info(f"Finished controller generation {self.__gen_num}")
-                    self.__gen_num += 1
+        return best_controller, max_fitness.item(), initial_fitness.item()
 
     def proposal(self, theta):
         theta_0 = np.expand_dims(theta, 1) # B x 1 x D
