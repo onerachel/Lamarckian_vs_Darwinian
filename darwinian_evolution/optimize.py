@@ -15,13 +15,15 @@ async def main() -> None:
     # number of initial mutations for body and brain CPPNWIN networks
     NUM_INITIAL_MUTATIONS = 10
 
-    SIMULATION_TIME = 30
+    SIMULATION_TIME = 60
     SAMPLING_FREQUENCY = 5
     CONTROL_FREQUENCY = 5
 
     POPULATION_SIZE = 50
     OFFSPRING_SIZE = 25
     NUM_GENERATIONS = 30
+
+    GRID_SIZE = 22
 
     # database
     database = open_async_database_sqlite("./database", create=True)
@@ -58,6 +60,11 @@ async def main() -> None:
         innov_db_body=innov_db_body,
         innov_db_brain=innov_db_brain,
         rng=rng,
+        simulation_time=SIMULATION_TIME,
+        sampling_frequency=SAMPLING_FREQUENCY,
+        control_frequency=CONTROL_FREQUENCY,
+        num_generations=NUM_GENERATIONS,
+        offspring_size=OFFSPRING_SIZE,
     )
     if maybe_optimizer is not None:
         optimizer = maybe_optimizer

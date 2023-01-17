@@ -286,6 +286,20 @@ class LocalRunner(Runner):
             type="plane",
             material="grid",
         )
+        # add target points markers
+        target_points = [(1.0, -1.0), (0.0, -2.0)]
+        for i, point in enumerate(target_points):
+           env_mjcf.worldbody.add(
+               "geom",
+               name="target_point_"+str(i),
+               pos=[point[0], point[1], 0.005],
+               size=[0.1, 0.01],
+               type="cylinder",
+               condim=1,
+               contype=2,
+               conaffinity=2,
+               rgba="0. .9 .5 1.",
+           )
         env_mjcf.visual.headlight.active = 0
 
         for actor_index, posed_actor in enumerate(env_descr.actors):

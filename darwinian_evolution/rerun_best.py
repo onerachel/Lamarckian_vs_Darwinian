@@ -19,8 +19,11 @@ from revolve2.core.database.serializers import FloatSerializer
 from array_genotype.array_genotype import ArrayGenotypeSerializer as BrainSerializer, develop as brain_develop
 from revolve2.genotypes.cppnwin.modular_robot.body_genotype_v1 import develop_v1 as body_develop
 from revolve2.genotypes.cppnwin._genotype import GenotypeSerializer as BodySerializer
+from revolve2.actor_controllers.cpg import CpgNetworkStructure, Cpg
+from typing import Optional
+import argparse
 
-async def main() -> None:
+async def main(record_dir: Optional[str], record: bool = False) -> None:
 
     """Run the script."""
     db = open_async_database_sqlite('database/')
@@ -85,10 +88,26 @@ async def main() -> None:
         bot = ModularRobot(body, brain)
 
     rerunner = ModularRobotRerunner()
-    await rerunner.rerun(bot, 5)
+    await rerunner.rerun(bot, 5, record_dir, record)
 
 
 if __name__ == "__main__":
     import asyncio
 
-    asyncio.run(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-r',
+        "--record",
+        action='store_true',
+        help="Record the robot simulation.",
+    )
+    parser.add_argument(
+        "record_dir", 
+        type=str,
+        nargs='?',
+        const='none',
+        help="The directory where the recording is goint to be saved."
+    )
+    args = parser.parse_args()
+
+    asyncio.run(main(args.record_dir, args.record))

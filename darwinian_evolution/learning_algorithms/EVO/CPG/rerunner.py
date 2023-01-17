@@ -8,11 +8,12 @@ from revolve2.core.physics.running import Batch, Environment, PosedActor
 import math
 from revolve2.core.physics.running import RecordSettings
 import numpy as np
+from typing import Optional
 
 class ModularRobotRerunner:
     """Rerunner for a single robot that uses Mujoco."""
 
-    async def rerun(self, robot: ModularRobot, control_frequency: float) -> None:
+    async def rerun(self, robot: ModularRobot, control_frequency: float, record_dir: Optional[str], record: bool = False) -> None:
         """
         Rerun a single robot.
 
@@ -20,7 +21,7 @@ class ModularRobotRerunner:
         :param control_frequency: Control frequency for the simulation. See `Batch` class from physics running.
         """
         batch = Batch(
-            simulation_time=30,
+            simulation_time=60,
             sampling_frequency=5,
             control_frequency=control_frequency,
         )
@@ -40,7 +41,10 @@ class ModularRobotRerunner:
         batch.environments.append(env)
 
         runner = LocalRunner(headless=False)
-        await runner.run_batch(batch,)
+        rs = None
+        if record:
+            rs = RecordSettings(record_dir)
+        await runner.run_batch(batch, rs)
 
 if __name__ == "__main__":
     print(

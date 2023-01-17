@@ -218,6 +218,7 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
         genotype_serializer: Type[Serializer[Genotype]],
         fitness_type: Type[Fitness],
         fitness_serializer: Type[Serializer[Fitness]],
+        offspring_size: int,
     ) -> bool:
         """
         Try to initialize this class async from a database.
@@ -236,17 +237,19 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
         :raises IncompatibleError: In case the database is not compatible with this class.
         """
         self.__database = database
+        self.__db_id = db_id
         self.__genotype_type = genotype_type
         self.__genotype_serializer = genotype_serializer
         self.__fitness_type = fitness_type
         self.__fitness_serializer = fitness_serializer
+        self.__offspring_size = offspring_size
 
         try:
             eo_row = (
                 (
                     await session.execute(
                         select(DbEAOptimizer).filter(
-                            DbEAOptimizer.db_id == db_id
+                            DbEAOptimizer.db_id == db_id.fullname
                         )
                     )
                 )
@@ -339,11 +342,19 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
         if self.__generation_index == 0:
             self.__latest_fitnesses = None
         else:
-            fitness_ids = [individual_map[id].fitness_id for id in individual_ids]
-            fitnesses = await self.__fitness_serializer.from_database(
-                session, fitness_ids
+            final_fitness_ids = [individual_map[id].final_fitness_id for id in individual_ids]
+            final_fitnesses = await self.__fitness_serializer.from_database(
+                session, final_fitness_ids
             )
-            assert len(fitnesses) == len(fitness_ids)
+            assert len(final_fitnesses) == len(final_fitness_ids)
+            starting_fitness_ids = [individual_map[id].starting_fitness_id for id in individual_ids]
+            starting_fitnesses = await self.__fitness_serializer.from_database(
+                session, starting_fitness_ids
+            )
+            assert len(starting_fitnesses) == len(starting_fitness_ids)
+            fitnesses = [[] for _ in range(2)]
+            fitnesses[0] = starting_fitnesses
+            fitnesses[1] = final_fitnesses
             self.__latest_fitnesses = fitnesses
 
         return True
