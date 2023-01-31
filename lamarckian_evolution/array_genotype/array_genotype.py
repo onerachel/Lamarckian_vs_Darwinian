@@ -39,7 +39,7 @@ def random_v1(
 
 def develop(genotype: ArrayGenotype) -> Brain:
     #genotype.genotype.finalize()
-    return np.concatenate([genotype.internal_params, genotype.external_params])
+    return np.concatenate(genotype.internal_params, genotype.external_params)
 
 class ArrayGenotypeSerializer(Serializer[ArrayGenotype]):
     @classmethod

@@ -370,9 +370,9 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
                 self.__db_id,
             )
             self.__latest_fitnesses = initial_fitnesses
-            initial_population = self.__latest_population
-            for i, ind in enumerate(initial_population):
+            for i, ind in enumerate(self.__latest_population):
                 ind.genotype = new_genotypes[i]
+            initial_population = self.__latest_population
             async with AsyncSession(self.__database) as session:
                 async with session.begin():
                     await self.__save_generation_using_session(
@@ -414,24 +414,14 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
                 self.__db_id
             )
 
-            # create individuals with learned controllers
-            new_learned_individuals = [
-                _Individual(
-                    -1,  # placeholder until later
-                    genotype,
-                    [self.__latest_population[i].id for i in parent_indices],
-                )
-                for parent_indices, genotype in zip(parent_selections, new_genotypes)
-            ]
-
-            # create individuals with original controllers
+            # combine to create list of individuals
             new_individuals = [
                 _Individual(
                     -1,  # placeholder until later
                     genotype,
                     [self.__latest_population[i].id for i in parent_indices],
                 )
-                for parent_indices, genotype in zip(parent_selections, offspring)
+                for parent_indices, genotype in zip(parent_selections, new_genotypes)
             ]
 
             # let user select survivors between old and new individuals
@@ -442,10 +432,8 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
             )
 
             # set ids for new individuals
-            for (individual, learned_individual) in zip(new_individuals, new_learned_individuals):
-                id = self.__gen_next_individual_id()
-                individual.id = id
-                learned_individual.id = id
+            for individual in new_individuals:
+                individual.id = self.__gen_next_individual_id()
 
             # combine old and new and store as the new generation
             self.__latest_population = [
@@ -463,7 +451,7 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
                         session,
                         initial_population,
                         initial_fitnesses,
-                        new_learned_individuals,
+                        new_individuals,
                         new_fitnesses,
                     )
                     self._on_generation_checkpoint(session)

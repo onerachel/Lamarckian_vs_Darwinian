@@ -26,9 +26,9 @@ async def main() -> None:
     GRID_SIZE = 22
 
     # database
-    database = open_async_database_sqlite("./darwinian_database", create=True)
+    database = open_async_database_sqlite("./lamarckian_database", create=True)
 
-    fileh = logging.FileHandler("darwinian_database/exp.log")
+    fileh = logging.FileHandler("lamarckian_database/exp.log")
     formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] [%(module)s] %(message)s")
     fileh.setFormatter(formatter)
 
@@ -65,7 +65,6 @@ async def main() -> None:
         control_frequency=CONTROL_FREQUENCY,
         num_generations=NUM_GENERATIONS,
         offspring_size=OFFSPRING_SIZE,
-        grid_size=GRID_SIZE
     )
     if maybe_optimizer is not None:
         optimizer = maybe_optimizer

@@ -2,6 +2,7 @@
 We compare Lamarckian evolution framework with Darwinian evolution framework in a mujoco and isaacgym based wrapper called Revolve2. The release version of Revolve2 used in this project is v0.3.6-beta1 (https://github.com/ci-group/revolve2/releases/tag/v0.3.6-beta1).
 
 Both frameworks were tested with two tasks (panoramic rotation and point navigation). Parameters used in the experiments are:
+``` 
 pop_size=50,
 offspring_size=25,
 nr_generations=30,
@@ -9,6 +10,8 @@ learner==RevDE,
 learning_trials=280,
 simulation_time=30 secs for rotation task,
 simulation_time=60 secs for point navigation task.
+
+``` 
 
 ## Installation 
 Steps to install:
@@ -23,7 +26,7 @@ Steps to install:
 ``` 
 
 ## Run experiments 
-To run experiments, e.g. darwinian_rotation and darwinian_point_navigation:
+To run experiments, e.g. darwinian_point_navigation:
 ``` 
 python darwinian_evolution/optimize.py
 ``` 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 experiment_optimize=darwinian_evolution/optimize.py
-experiment_name=darwinian_rotation
+experiment_name=darwinian_point_navigation
 
 for num in {1..2}
 do
