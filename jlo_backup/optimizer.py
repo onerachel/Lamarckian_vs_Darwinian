@@ -19,8 +19,6 @@ from revolve2.core.physics.running import (ActorState, Batch,
 from .runner_mujoco import LocalRunner
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.ext.asyncio.session import AsyncSession
-from array_genotype.array_genotype import ArrayGenotype
-from array_genotype.array_genotype_mutation import mutate as brain_mutation
 
 class Optimizer(RevDEOptimizer):
     """
@@ -84,7 +82,7 @@ class Optimizer(RevDEOptimizer):
         initial_population = np.repeat(np.expand_dims(inherited_brain, axis=0), population_size, axis=0)
         gaussian_noise = np.random.normal(scale=0.5, size=[len(initial_population)-1, inherited_brain.shape[0]])
         initial_population[1:] += gaussian_noise
-        
+
         await super().ainit_new(
             rng=rng,
             population_size=population_size,
@@ -160,7 +158,6 @@ class Optimizer(RevDEOptimizer):
             active_hinges
         )
 
-
     def _init_runner(self, num_simulators: int = 1) -> None:
         return LocalRunner(headless=True, num_simulators=num_simulators)
 
@@ -195,7 +192,7 @@ class Optimizer(RevDEOptimizer):
             controller = brain.make_controller(self._body, self._dof_ids)
 
             bounding_box = self._actor.calc_aabb()
-            env = Environment(EnvironmentActorController(controller, self._target_points, steer=True))
+            env = Environment(EnvironmentActorController(controller, self._target_points, steer=True)) # steer=False for rotation task;steer=True for point navigation task
             env.actors.append(
                 PosedActor(
                     self._actor,
@@ -219,6 +216,7 @@ class Optimizer(RevDEOptimizer):
                 self._calculate_point_navigation(
                     environment_result, self._target_points
                 )
+                # self._calculate_panoramic_rotation(environment_result)
                 for environment_result in batch_results.environment_results
             ]
         )
@@ -232,12 +230,12 @@ class Optimizer(RevDEOptimizer):
 
         coordinates = [env_state.actor_states[0].position[:2] for env_state in results.environment_states]
         path_length = [compute_distance(coordinates[i-1], coordinates[i]) for i in range(1,len(coordinates))]
-        starting_idx = 0
+        starting_point = 0
         for idx, state in enumerate(coordinates[1:]):
             if reached_target_counter < len(targets) and check_target(state, targets[reached_target_counter], target_range):
-                distances.append(sum(path_length[:idx]) - sum(path_length[:starting_idx]))
+                distances.append(sum(path_length[:idx]) - sum(path_length[:starting_point]))
                 reached_target_counter += 1
-                starting_idx = idx
+                starting_point = idx
         
         fitness = reached_target_counter * math.sqrt(2)
         if reached_target_counter > 0:
@@ -253,19 +251,17 @@ class Optimizer(RevDEOptimizer):
             gamma = compute_distance(coordinates[-1], trajectory[reached_target_counter])
             alpha = gamma * math.sin(theta)
             beta = gamma * math.cos(theta)
-            
             # check to prevent that the robot goes further than the target
             max_beta = compute_distance(trajectory[reached_target_counter], trajectory[reached_target_counter+1])
             beta = min(beta, max_beta)
             
-            path_len = sum(path_length) - sum(path_length[:starting_idx])
+            path_len = sum(path_length) - sum(path_length[:starting_point])
             omega = 0.01
-            epsilon = 0.1
+            epsilon = 10e-10
 
             fitness += (abs(beta)/(path_len + epsilon)) * (beta/(math.degrees(theta) + 1.0) - omega * alpha)
 
             return fitness
-
 
     @staticmethod
     def _calculate_panoramic_rotation(results, vertical_angle_limit = math.pi/4) -> float:

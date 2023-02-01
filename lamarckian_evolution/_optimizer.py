@@ -647,7 +647,7 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
         for ind, body in zip(new_individuals, bodies):
             render = Render()
             id = ind.id
-            img_path = f'database/body_images/generation_{self.generation_index}/individual_{id}.png'
+            img_path = f'lamarckian_database/body_images/generation_{self.generation_index}/individual_{id}.png'
             render.render_robot(body.core, img_path)
 
         # compute morphological measures
