@@ -24,6 +24,6 @@ def crossover(parent_a: ArrayGenotype,
     new_internal_params = np.copy(parent_a.internal_params)
     new_internal_params[crossover_array] = parent_b.internal_params[crossover_array]
     
-    new_genotype = ArrayGenotype(new_internal_params, np.zeros(shape=1))
+    new_genotype = ArrayGenotype(new_internal_params)
 
     return new_genotype 

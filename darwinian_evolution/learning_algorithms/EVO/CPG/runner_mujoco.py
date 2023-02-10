@@ -188,6 +188,7 @@ class LocalRunner(Runner):
                     con=viewer.ctx,
                 )
                 img = np.flip(img, axis=0)  # img is upside down initially
+                img = np.stack((img[:,:,2],img[:,:,1],img[:,:,0]), axis=-1) # switch color channels
                 video.write(img)
 
         if not headless or record_settings is not None:

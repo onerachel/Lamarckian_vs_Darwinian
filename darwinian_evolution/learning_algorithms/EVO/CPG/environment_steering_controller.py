@@ -71,6 +71,7 @@ class EnvironmentActorController(EnvironmentController):
                 a0 = np.array(core_position) - trajectory[self.reached_target_counter]
                 b0 = np.array(self.target_points[self.reached_target_counter]) - trajectory[self.reached_target_counter]
                 theta = np.arctan2(a0[1], a0[0]) - np.arctan2(b0[1], b0[0])
+                theta = (theta + np.pi) % (2*np.pi) - np.pi
                 g = ((np.pi-abs(theta))/np.pi) ** self.n
 
                 # apply steering factor

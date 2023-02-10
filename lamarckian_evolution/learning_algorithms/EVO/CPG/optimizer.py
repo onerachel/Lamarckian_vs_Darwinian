@@ -156,9 +156,9 @@ class Optimizer(RevDEOptimizer):
             active_hinge.id: active_hinge for active_hinge in active_hinges_unsorted
         }
         active_hinges = [active_hinge_map[id] for id in self._dof_ids]
-        self._cpg_network_structure = make_cpg_network_structure_neighbour(
-            active_hinges
-        )
+        cpgs = [Cpg(i) for i, _ in enumerate(active_hinges)]
+        cpg_structure = CpgNetworkStructure(cpgs, set())
+        self._cpg_network_structure = cpg_structure
 
 
     def _init_runner(self, num_simulators: int = 1) -> None:
@@ -195,7 +195,7 @@ class Optimizer(RevDEOptimizer):
             controller = brain.make_controller(self._body, self._dof_ids)
 
             bounding_box = self._actor.calc_aabb()
-            env = Environment(EnvironmentActorController(controller, self._target_points, steer=True))
+            env = Environment(EnvironmentActorController(controller, self._target_points, steer=False))
             env.actors.append(
                 PosedActor(
                     self._actor,
@@ -216,8 +216,8 @@ class Optimizer(RevDEOptimizer):
 
         return np.array(
             [
-                self._calculate_point_navigation(
-                    environment_result, self._target_points
+                self._calculate_panoramic_rotation(
+                    environment_result
                 )
                 for environment_result in batch_results.environment_results
             ]
@@ -226,45 +226,33 @@ class Optimizer(RevDEOptimizer):
     @staticmethod
     def _calculate_point_navigation(results, targets) -> float:
         trajectory = [(0.0, 0.0)] + targets
-        distances = []
+        distances = [compute_distance(trajectory[i], trajectory[i-1]) for i in range(1, len(trajectory))]
         target_range = 0.1
         reached_target_counter = 0
-
         coordinates = [env_state.actor_states[0].position[:2] for env_state in results.environment_states]
-        path_length = [compute_distance(coordinates[i-1], coordinates[i]) for i in range(1,len(coordinates))]
+        lengths = [compute_distance(coordinates[i-1], coordinates[i]) for i in range(1,len(coordinates))]
         starting_idx = 0
-        for idx, state in enumerate(coordinates[1:]):
+        for idx, state in enumerate(coordinates):
             if reached_target_counter < len(targets) and check_target(state, targets[reached_target_counter], target_range):
-                distances.append(sum(path_length[:idx]) - sum(path_length[:starting_idx]))
                 reached_target_counter += 1
                 starting_idx = idx
         
-        fitness = reached_target_counter * math.sqrt(2)
+        fitness = 0
         if reached_target_counter > 0:
-            fitness /= sum(distances)
-
+            path_len = sum(lengths[:starting_idx])
+            fitness = sum(distances[:reached_target_counter]) - 0.1*path_len
         if reached_target_counter == len(targets):
             return fitness
         else:
-            new_origin = trajectory[reached_target_counter]
-            delta = math.atan2(coordinates[-1][1] - new_origin[1], coordinates[-1][0] - new_origin[0])
-            target_direction = math.atan2(targets[reached_target_counter][1] - new_origin[1], targets[reached_target_counter][0] - new_origin[0])
-            theta = abs(((delta - target_direction) + math.pi) % (2*math.pi) - math.pi)
-            gamma = compute_distance(coordinates[-1], trajectory[reached_target_counter])
-            alpha = gamma * math.sin(theta)
-            beta = gamma * math.cos(theta)
-            
-            # check to prevent that the robot goes further than the target
-            max_beta = compute_distance(trajectory[reached_target_counter], trajectory[reached_target_counter+1])
-            beta = min(beta, max_beta)
-            
-            path_len = sum(path_length) - sum(path_length[:starting_idx])
-            omega = 0.01
-            epsilon = 0.1
-
-            fitness += (abs(beta)/(path_len + epsilon)) * (beta/(math.degrees(theta) + 1.0) - omega * alpha)
-
-            return fitness
+            if reached_target_counter == 0:
+                last_target = (0.0, 0.0)
+            else:
+                last_target = trajectory[reached_target_counter]
+            last_coord = coordinates[-1]
+            distance = compute_distance(targets[reached_target_counter], last_target)
+            distance -= compute_distance(targets[reached_target_counter], last_coord)
+            new_path_len = sum(lengths[:]) - sum(lengths[:starting_idx])
+            return fitness + (distance - 0.1*new_path_len)
 
 
     @staticmethod

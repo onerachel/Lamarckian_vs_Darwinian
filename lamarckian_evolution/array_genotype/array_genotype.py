@@ -23,7 +23,6 @@ from random import Random
 @dataclass
 class ArrayGenotype:
     internal_params: npt.NDArray[np.float_]
-    external_params: npt.NDArray[np.float_]
 
 def random_v1(
         length: int,
@@ -33,13 +32,12 @@ def random_v1(
         np.random.PCG64(rng.randint(0, 2 ** 63))
     )  # rng is currently not numpy, but this would be very convenient. do this until that is resolved.
     internal_params = nprng.standard_normal(length)
-    external_params = nprng.standard_normal(1)
-    return ArrayGenotype(internal_params, external_params)
+    return ArrayGenotype(internal_params)
 
 
 def develop(genotype: ArrayGenotype) -> Brain:
     #genotype.genotype.finalize()
-    return np.concatenate(genotype.internal_params, genotype.external_params)
+    return genotype.internal_params
 
 class ArrayGenotypeSerializer(Serializer[ArrayGenotype]):
     @classmethod
@@ -64,19 +62,10 @@ class ArrayGenotypeSerializer(Serializer[ArrayGenotype]):
             int_ids += id
         assert len(int_ids) == len(objects)
 
-        ext_ids = []
-        for obj in objects:
-            id = await Ndarray1xnSerializer.to_database(
-                session, [obj.external_params]
-            )
-            ext_ids += id
-        assert len(ext_ids) == len(objects)
-
 
         dbgenotypes = [DbArrayGenotype() for _ in objects]
-        for i, (int_id, ext_id) in enumerate(zip(int_ids, ext_ids)):
+        for i, int_id in enumerate(int_ids):
             dbgenotypes[i].internal_weights = int_id
-            dbgenotypes[i].external_weights = ext_id
 
         session.add_all(dbgenotypes)
         await session.flush()
@@ -103,13 +92,11 @@ class ArrayGenotypeSerializer(Serializer[ArrayGenotype]):
         )
 
         int_param_ids = [a.internal_weights for a in arrays]
-        ext_param_ids = [a.external_weights for a in arrays]
         internal_params = [(await Ndarray1xnSerializer.from_database(session, [id]))[0] for id in int_param_ids]
-        external_params = [(await Ndarray1xnSerializer.from_database(session, [id]))[0] for id in ext_param_ids]
 
         genotypes: List[ArrayGenotype] = [
-            ArrayGenotype(np.array(int_param), np.array(ext_param))
-            for int_param, ext_param in zip(internal_params, external_params)
+            ArrayGenotype(np.array(int_param))
+            for int_param in internal_params
         ]
 
         return genotypes

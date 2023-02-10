@@ -401,7 +401,7 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
             offspring = [
                 self.__safe_mutate(
                     self.__safe_crossover(
-                        [self.__latest_population[i].genotype for i in s]
+                        [self.__latest_population[i].genotype for i in s], self.__latest_fitnesses[0][s[0]] >= self.__latest_fitnesses[0][s[1]]
                     )
                 )
                 for s in parent_selections
@@ -525,8 +525,8 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
         )
         return parent_selections
 
-    def __safe_crossover(self, parents: List[Genotype]) -> Genotype:
-        genotype = self._crossover(parents)
+    def __safe_crossover(self, parents: List[Genotype], first_best: bool) -> Genotype:
+        genotype = self._crossover(parents, first_best)
         assert type(genotype) == self.__genotype_type
         return genotype
 

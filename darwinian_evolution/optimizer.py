@@ -284,8 +284,6 @@ class Optimizer(EAOptimizer[Genotype, float]):
                 brain_params.append(brain_genotype.internal_params[int(pos[0] + pos[1] * self._grid_size + pos[2] * self._grid_size**2 + 
                                             self._grid_size**3 / 2)])
 
-            for _ in cpg_network_structure.connections:
-                brain_params.append(np.random.standard_normal(1)[0])
             logging.info("Starting optimization of the controller for morphology num: " + str(body_num))
             final_fitness = 0.0
             starting_fitness = 0.0
@@ -299,9 +297,6 @@ class Optimizer(EAOptimizer[Genotype, float]):
                     brain_genotype.internal_params[int(pos[0] + pos[1] * self._grid_size + pos[2] * self._grid_size**2 + 
                                             self._grid_size**3 / 2)] = learned_weight
 
-                external_params = np.zeros(shape=len(cpg_network_structure.connections))
-                external_params = learned_params[len(active_hinges):]
-                brain_genotype.external_params = external_params
             final_fitnesses.append(final_fitness)
             starting_fitnesses.append(starting_fitness)
 

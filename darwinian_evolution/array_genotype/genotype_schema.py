@@ -14,7 +14,3 @@ class DbArrayGenotype(DbBase):
     internal_weights = sqlalchemy.Column(
         sqlalchemy.Integer, sqlalchemy.ForeignKey(DbNdarray1xn.id), nullable=False
     )
-
-    external_weights = sqlalchemy.Column(
-        sqlalchemy.Integer, sqlalchemy.ForeignKey(DbNdarray1xn.id), nullable=False
-    )

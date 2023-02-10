@@ -26,7 +26,7 @@ async def main(body, brain, gen, num) -> None:
     SCALING = 0.5
     CROSS_PROB = 0.9
 
-    SIMULATION_TIME = 60
+    SIMULATION_TIME = 30
     SAMPLING_FREQUENCY = 5
     CONTROL_FREQUENCY = 5
 
