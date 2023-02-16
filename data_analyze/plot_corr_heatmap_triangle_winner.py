@@ -16,7 +16,7 @@ warnings.filterwarnings("ignore")
 sns.set(rc={"figure.figsize": (20, 15)})
 sns.set_style("whitegrid")
 
-path = "/Users/lj/revolve2"
+path = "/Users/lj/revolve2-Alife"
 
 # Read files
 df = pd.read_csv(path + "/databases_eval580/robotzoo_descriptors.csv")

@@ -25,13 +25,15 @@ class ArrayGenotype:
     internal_params: npt.NDArray[np.float_]
 
 def random_v1(
-        length: int,
+        grid_size: int,
         rng: Random,
 ) -> ArrayGenotype:
     nprng = np.random.Generator(
         np.random.PCG64(rng.randint(0, 2 ** 63))
     )  # rng is currently not numpy, but this would be very convenient. do this until that is resolved.
-    internal_params = nprng.standard_normal(length)
+    num_potential_joints = ((grid_size**2)-1)
+    genotype_len = num_potential_joints*14
+    internal_params = nprng.standard_normal(genotype_len)
     return ArrayGenotype(internal_params)
 
 

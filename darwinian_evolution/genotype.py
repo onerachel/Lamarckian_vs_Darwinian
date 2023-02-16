@@ -201,7 +201,7 @@ def random(
         num_initial_mutations,
     )
 
-    brain = random_array_genotype(robot_grid_size**3, rng)
+    brain = random_array_genotype(robot_grid_size, rng)
 
     return Genotype(body, brain)
 
@@ -235,6 +235,7 @@ def crossover(
     parent1: Genotype,
     parent2: Genotype,
     rng: Random,
+    first_best: bool
 ) -> Genotype:
     """
     Perform crossover between two genotypes.
@@ -256,7 +257,8 @@ def crossover(
     brain = brain_crossover(
             parent1.brain,
             parent2.brain,
-            0.5
+            0.5,
+            first_best
         )
 
     return Genotype(

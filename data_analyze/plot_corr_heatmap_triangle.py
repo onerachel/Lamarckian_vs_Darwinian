@@ -16,7 +16,7 @@ warnings.filterwarnings("ignore")
 sns.set(rc={"figure.figsize": (20, 15)})
 sns.set_style("whitegrid")
 
-path = "/Users/lj/revolve2"
+path = "/Users/lj/revolve2-Alife"
 
 # Read files
 df1 = pd.read_csv(path + "/databases_eval580/data_analysis_580.csv")
@@ -32,12 +32,13 @@ df = pd.merge(df1, df2, on='robot', how='left')
 # print(df_all.nlargest(10, 'fitness(cm/s)'))
 
 # Filter on learners and select top 100 robots based on fitness
-CPG_NES = df[df['controller+learner'] == 'CPG+NES'].nlargest(100, 'fitness(cm/s)')
+# CPG_NES = df[df['controller+learner'] == 'CPG+NES'].nlargest(100, 'fitness(cm/s)')
 CPG_RevDE = df[df['controller+learner'] == 'CPG+RevDE'].nlargest(100, 'fitness(cm/s)')
 DRL_PPO = df[df['controller+learner'] == 'DRL+PPO'].nlargest(100, 'fitness(cm/s)')
 ANN_RevDE = df[df['controller+learner'] == 'ANN+RevDE'].nlargest(100, 'fitness(cm/s)')
 
-data = [CPG_NES, CPG_RevDE, ANN_RevDE, DRL_PPO]
+data = [ CPG_RevDE, ANN_RevDE, DRL_PPO] #CPG_NES,
+print(data)
 for i, file in enumerate(data):
     learner = data[i]['controller+learner'].unique()
     data[i] = data[i][['fitness(cm/s)', 'limbs', 'extremities', 'length_of_limbs', 'extensiveness',

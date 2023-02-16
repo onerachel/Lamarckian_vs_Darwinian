@@ -201,7 +201,7 @@ def random(
         num_initial_mutations,
     )
 
-    brain = random_array_genotype(robot_grid_size**3, rng)
+    brain = random_array_genotype(robot_grid_size, rng)
 
     return Genotype(body, brain)
 

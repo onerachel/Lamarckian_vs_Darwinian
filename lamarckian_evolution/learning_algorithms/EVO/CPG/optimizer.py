@@ -156,9 +156,10 @@ class Optimizer(RevDEOptimizer):
             active_hinge.id: active_hinge for active_hinge in active_hinges_unsorted
         }
         active_hinges = [active_hinge_map[id] for id in self._dof_ids]
-        cpgs = [Cpg(i) for i, _ in enumerate(active_hinges)]
-        cpg_structure = CpgNetworkStructure(cpgs, set())
-        self._cpg_network_structure = cpg_structure
+        cpg_network_structure = make_cpg_network_structure_neighbour(
+            active_hinges
+        )
+        self._cpg_network_structure = cpg_network_structure
 
 
     def _init_runner(self, num_simulators: int = 1) -> None:
@@ -195,7 +196,7 @@ class Optimizer(RevDEOptimizer):
             controller = brain.make_controller(self._body, self._dof_ids)
 
             bounding_box = self._actor.calc_aabb()
-            env = Environment(EnvironmentActorController(controller, self._target_points, steer=False))
+            env = Environment(EnvironmentActorController(controller, self._target_points, steer=True))
             env.actors.append(
                 PosedActor(
                     self._actor,
@@ -216,8 +217,8 @@ class Optimizer(RevDEOptimizer):
 
         return np.array(
             [
-                self._calculate_panoramic_rotation(
-                    environment_result
+                self._calculate_point_navigation(
+                    environment_result, self._target_points
                 )
                 for environment_result in batch_results.environment_results
             ]

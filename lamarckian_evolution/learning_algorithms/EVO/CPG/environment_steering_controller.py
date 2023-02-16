@@ -32,7 +32,8 @@ class EnvironmentActorController(EnvironmentController):
             self.reached_target_counter = 0
             self.target_range = 0.1
             self.n = 7
-            self.joint_pos = []
+            self.is_left = []
+            self.is_right = []
 
     def control(self, dt: float, actor_control: ActorControl, joint_positions=None, current_pos=None, save_pos=False) -> None:
         """
@@ -60,11 +61,11 @@ class EnvironmentActorController(EnvironmentController):
 
                 if save_pos:
                     for joint_pos in joint_positions[1:]:
-                        self.joint_pos.append(joint_pos[0] >= 0)
+                        self.is_left.append(joint_pos[0] > 0)
+                        self.is_right.append(joint_pos[0] < 0)
 
                 # check if joints are on the left or right
                 joint_positions = [c[:2] for c in joint_positions]
-                is_left = self.joint_pos
 
                 # compute steering angle and parameters
                 trajectory = [(0.0, 0.0)] + self.target_points
@@ -75,11 +76,11 @@ class EnvironmentActorController(EnvironmentController):
                 g = ((np.pi-abs(theta))/np.pi) ** self.n
 
                 # apply steering factor
-                for i, left in enumerate(is_left):
+                for i, (left, right) in enumerate(zip(self.is_left, self.is_right)):
                     if left:
                         if theta < 0:
                             targets[i] *= g
-                    else:
+                    elif right:
                         if theta >= 0:
                             targets[i] *= g
             

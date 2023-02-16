@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Nov 4 18:47:58 2022
+Created on Feb 6 18:47:58 2023
 
 @author: LJ
 """
@@ -19,7 +19,6 @@ df = pd.read_csv(path+"/databases_eval1000/data_analysis_1000_20runs.csv")
 print(df['controller+learner'].unique())
 
 # Filter values in a column
-# CPG_NES = df[df['controller+learner']=='CPG+NES']
 CPG_RevDE = df[df['controller+learner']=='CPG+RevDE']
 ANN_RevDE = df[df['controller+learner']=='ANN+RevDE']
 DRL_PPO = df[df['controller+learner']=='DRL+PPO']

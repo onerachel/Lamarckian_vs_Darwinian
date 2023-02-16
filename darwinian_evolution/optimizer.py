@@ -64,6 +64,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
 
     _num_generations: int
     _grid_size: int
+    _num_potential_joints: int
 
     async def ainit_new(  # type: ignore # TODO for now ignoring mypy complaint about LSP problem, override parent's ainit
         self,
@@ -121,6 +122,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
         self._control_frequency = control_frequency
         self._num_generations = num_generations
         self._grid_size = grid_size
+        self._num_potential_joints = ((grid_size**2)-1)
 
         # create database structure if not exists
         # TODO this works but there is probably a better way
@@ -241,9 +243,9 @@ class Optimizer(EAOptimizer[Genotype, float]):
     def _must_do_next_gen(self) -> bool:
         return self.generation_index != self._num_generations
 
-    def _crossover(self, parents: List[Genotype]) -> Genotype:
+    def _crossover(self, parents: List[Genotype], first_best: bool) -> Genotype:
         assert len(parents) == 2
-        return crossover(parents[0], parents[1], self._rng)
+        return crossover(parents[0], parents[1], self._rng, first_best)
 
     def _mutate(self, genotype: Genotype) -> Genotype:
         return mutate(genotype, self._innov_db_body, self._innov_db_brain, self._rng)
@@ -254,11 +256,6 @@ class Optimizer(EAOptimizer[Genotype, float]):
         database: AsyncEngine,
         db_id: DbId,
     ) -> Tuple[List[float], List[Genotype]]:
-        batch = Batch(
-            simulation_time=self._simulation_time,
-            sampling_frequency=self._sampling_frequency,
-            control_frequency=self._control_frequency,
-        )
 
         final_fitnesses = []
         starting_fitnesses = []
@@ -281,8 +278,23 @@ class Optimizer(EAOptimizer[Genotype, float]):
             brain_params = []
             for hinge in active_hinges:
                 pos = body.grid_position(hinge)
-                brain_params.append(brain_genotype.internal_params[int(pos[0] + pos[1] * self._grid_size + pos[2] * self._grid_size**2 + 
-                                            self._grid_size**3 / 2)])
+                cpg_idx = int(pos[0] + pos[1] * self._grid_size + self._grid_size**2 / 2)
+                brain_params.append(brain_genotype.internal_params[
+                    cpg_idx*14
+                ])
+
+            for connection in cpg_network_structure.connections:
+                hinge1 = connection.cpg_index_highest.index
+                pos1 = body.grid_position(active_hinges[hinge1])
+                cpg_idx1 = int(pos1[0] + pos1[1] * self._grid_size + self._grid_size**2 / 2)
+                hinge2 = connection.cpg_index_lowest.index
+                pos2 = body.grid_position(active_hinges[hinge2])
+                cpg_idx2 = int(pos2[0] + pos2[1] * self._grid_size + self._grid_size**2 / 2)
+                rel_pos = relative_pos(pos1[:2], pos2[:2])
+                idx = max(cpg_idx1, cpg_idx2)
+                brain_params.append(brain_genotype.internal_params[
+                    idx*14 + rel_pos
+                ])
 
             logging.info("Starting optimization of the controller for morphology num: " + str(body_num))
             final_fitness = 0.0
@@ -294,8 +306,23 @@ class Optimizer(EAOptimizer[Genotype, float]):
                 learned_params, final_fitness, starting_fitness = await learn_controller(body, brain_params, self.generation_index, body_num)
                 for hinge, learned_weight in zip(active_hinges, learned_params[:len(active_hinges)]):
                     pos = body.grid_position(hinge)
-                    brain_genotype.internal_params[int(pos[0] + pos[1] * self._grid_size + pos[2] * self._grid_size**2 + 
-                                            self._grid_size**3 / 2)] = learned_weight
+                    cpg_idx = int(pos[0] + pos[1] * self._grid_size + self._grid_size**2 / 2)
+                    brain_genotype.internal_params[
+                        cpg_idx*14
+                    ] = learned_weight
+
+                for connection, connection_weight in zip(cpg_network_structure.connections, learned_params[len(active_hinges):]):
+                    hinge1 = connection.cpg_index_highest.index
+                    pos1 = body.grid_position(active_hinges[hinge1])
+                    cpg_idx1 = int(pos1[0] + pos1[1] * self._grid_size + self._grid_size**2 / 2)
+                    hinge2 = connection.cpg_index_lowest.index
+                    pos2 = body.grid_position(active_hinges[hinge2])
+                    cpg_idx2 = int(pos2[0] + pos2[1] * self._grid_size + self._grid_size**2 / 2)
+                    rel_pos = relative_pos(pos1[:2], pos2[:2])
+                    idx = max(cpg_idx1, cpg_idx2)
+                    brain_genotype.internal_params[
+                        idx*14 + rel_pos
+                    ] = connection_weight
 
             final_fitnesses.append(final_fitness)
             starting_fitnesses.append(starting_fitness)
@@ -353,3 +380,12 @@ class DbOptimizerState(DbBase):
     sampling_frequency = sqlalchemy.Column(sqlalchemy.Float, nullable=False)
     control_frequency = sqlalchemy.Column(sqlalchemy.Float, nullable=False)
     num_generations = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
+
+def relative_pos(pos1, pos2):
+    dx = pos2[0] - pos1[0]
+    dy = pos2[1] - pos1[1]
+
+    mapping = {(1,0):1, (1,1):2, (0,1):3, (-1,0):4, (-1,-1):5, (0,-1):6,
+                (-1,1):7, (1,-1):8, (2,0):9, (0,2):10, (-2,0):11, (0,-2):12, (0,0):13}
+    
+    return mapping[(dx,dy)]
