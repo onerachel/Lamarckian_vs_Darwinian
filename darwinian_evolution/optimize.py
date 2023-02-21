@@ -26,9 +26,9 @@ async def main() -> None:
     GRID_SIZE = 22
 
     # database
-    database = open_async_database_sqlite("./darwinian_database", create=True)
+    database = open_async_database_sqlite("./darw_sex_database", create=True)
 
-    fileh = logging.FileHandler("darwinian_database/exp.log")
+    fileh = logging.FileHandler("darw_sex_database/exp.log")
     formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] [%(module)s] %(message)s")
     fileh.setFormatter(formatter)
 

@@ -20,7 +20,11 @@ def crossover(parent_a: ArrayGenotype,
     https://medium.com/@samiran.bera/crossover-operator-the-heart-of-genetic-algorithm-6c0fdcb405c0
     """
 
-    if first_best:
-        return ArrayGenotype(parent_a.internal_params.copy())
-    else:
-        return ArrayGenotype(parent_b.internal_params.copy())
+    prob_array = np.random.uniform(low=0, high=1.0, size=parent_a.params_array.shape[0])
+    crossover_array = prob_array > crossover_prob
+    new_params_array = np.copy(parent_a.params_array)
+    new_params_array[crossover_array] = parent_b.params_array[crossover_array]
+    
+    new_genotype = ArrayGenotype(new_params_array)
+
+    return new_genotype 

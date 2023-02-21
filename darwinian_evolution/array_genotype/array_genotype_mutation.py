@@ -32,7 +32,7 @@ def mutate(genotype: ArrayGenotype, mu, sigma, mutation_prob: ArrayMutationConfi
     functions from the python base :mod:`random` module.
     https://github.com/DEAP/deap/blob/master/deap/tools/mutation.py
     """
-    size = len(genotype.internal_params)
+    size = len(genotype.params_array)
     if not isinstance(mu, Sequence):
         mu = repeat(mu, size)
     elif len(mu) < size:
@@ -44,6 +44,6 @@ def mutate(genotype: ArrayGenotype, mu, sigma, mutation_prob: ArrayMutationConfi
 
     for i, m, s in zip(range(size), mu, sigma):
         if random.random() < mutation_prob:
-            genotype.internal_params[i] += random.gauss(m, s)
+            genotype.params_array[i] += random.gauss(m, s)
 
     return genotype  # new_genotype

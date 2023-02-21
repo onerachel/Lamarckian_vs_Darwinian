@@ -279,7 +279,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
             for hinge in active_hinges:
                 pos = body.grid_position(hinge)
                 cpg_idx = int(pos[0] + pos[1] * self._grid_size + self._grid_size**2 / 2)
-                brain_params.append(brain_genotype.internal_params[
+                brain_params.append(brain_genotype.params_array[
                     cpg_idx*14
                 ])
 
@@ -292,7 +292,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
                 cpg_idx2 = int(pos2[0] + pos2[1] * self._grid_size + self._grid_size**2 / 2)
                 rel_pos = relative_pos(pos1[:2], pos2[:2])
                 idx = max(cpg_idx1, cpg_idx2)
-                brain_params.append(brain_genotype.internal_params[
+                brain_params.append(brain_genotype.params_array[
                     idx*14 + rel_pos
                 ])
 
@@ -307,7 +307,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
                 for hinge, learned_weight in zip(active_hinges, learned_params[:len(active_hinges)]):
                     pos = body.grid_position(hinge)
                     cpg_idx = int(pos[0] + pos[1] * self._grid_size + self._grid_size**2 / 2)
-                    brain_genotype.internal_params[
+                    brain_genotype.params_array[
                         cpg_idx*14
                     ] = learned_weight
 
@@ -320,7 +320,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
                     cpg_idx2 = int(pos2[0] + pos2[1] * self._grid_size + self._grid_size**2 / 2)
                     rel_pos = relative_pos(pos1[:2], pos2[:2])
                     idx = max(cpg_idx1, cpg_idx2)
-                    brain_genotype.internal_params[
+                    brain_genotype.params_array[
                         idx*14 + rel_pos
                     ] = connection_weight
 

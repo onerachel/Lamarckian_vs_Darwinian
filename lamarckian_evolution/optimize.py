@@ -26,9 +26,9 @@ async def main() -> None:
     GRID_SIZE = 22
 
     # database
-    database = open_async_database_sqlite("./lamarckian_database", create=True)
+    database = open_async_database_sqlite("./lamarc_sex_database", create=True)
 
-    fileh = logging.FileHandler("lamarckian_database/exp.log")
+    fileh = logging.FileHandler("lamarc_sex_database/exp.log")
     formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] [%(module)s] %(message)s")
     fileh.setFormatter(formatter)
 

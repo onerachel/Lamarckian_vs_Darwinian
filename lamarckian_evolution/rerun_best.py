@@ -26,7 +26,7 @@ import argparse
 async def main(record_dir: Optional[str], record: bool = False) -> None:
 
     """Run the script."""
-    db = open_async_database_sqlite('lamarckian_database/')
+    db = open_async_database_sqlite('lamarc_sex_database/')
     async with AsyncSession(db) as session:
         individuals = (
             (
@@ -70,13 +70,33 @@ async def main(record_dir: Optional[str], record: bool = False) -> None:
         }
         active_hinges = [active_hinge_map[id] for id in dof_ids]
 
-        cpgs = [Cpg(i) for i, _ in enumerate(active_hinges)]
-        cpg_network_structure = CpgNetworkStructure(cpgs, set())
+        cpg_network_structure = make_cpg_network_structure_neighbour(
+            active_hinges
+        )
 
+        brain_genotype = genotype.brain
+        grid_size = 22
+        num_potential_joints = ((grid_size**2)-1)
         brain_params = []
         for hinge in active_hinges:
             pos = body.grid_position(hinge)
-            brain_params.append(genotype.brain.internal_params[int(pos[0] + pos[1] * 22 + pos[2] * 22**2 + 22**3 / 2)])
+            cpg_idx = int(pos[0] + pos[1] * grid_size + grid_size**2 / 2)
+            brain_params.append(brain_genotype.params_array[
+                cpg_idx*14
+            ])
+
+        for connection in cpg_network_structure.connections:
+            hinge1 = connection.cpg_index_highest.index
+            pos1 = body.grid_position(active_hinges[hinge1])
+            cpg_idx1 = int(pos1[0] + pos1[1] * grid_size + grid_size**2 / 2)
+            hinge2 = connection.cpg_index_lowest.index
+            pos2 = body.grid_position(active_hinges[hinge2])
+            cpg_idx2 = int(pos2[0] + pos2[1] * grid_size + grid_size**2 / 2)
+            rel_pos = relative_pos(pos1[:2], pos2[:2])
+            idx = max(cpg_idx1, cpg_idx2)
+            brain_params.append(brain_genotype.params_array[
+                idx*14 + rel_pos
+            ])
 
         initial_state = cpg_network_structure.make_uniform_state(0.5 * math.pi / 2.0)
         weight_matrix = (
@@ -95,6 +115,14 @@ async def main(record_dir: Optional[str], record: bool = False) -> None:
     rerunner = ModularRobotRerunner()
     await rerunner.rerun(bot, 5, record_dir, record)
 
+def relative_pos(pos1, pos2):
+    dx = pos2[0] - pos1[0]
+    dy = pos2[1] - pos1[1]
+
+    mapping = {(1,0):1, (1,1):2, (0,1):3, (-1,0):4, (-1,-1):5, (0,-1):6,
+                (-1,1):7, (1,-1):8, (2,0):9, (0,2):10, (-2,0):11, (0,-2):12, (0,0):13}
+    
+    return mapping[(dx,dy)]
 
 if __name__ == "__main__":
     import asyncio

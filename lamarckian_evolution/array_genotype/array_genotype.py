@@ -22,7 +22,7 @@ from random import Random
 
 @dataclass
 class ArrayGenotype:
-    internal_params: npt.NDArray[np.float_]
+    params_array: npt.NDArray[np.float_]
 
 def random_v1(
         grid_size: int,
@@ -33,13 +33,13 @@ def random_v1(
     )  # rng is currently not numpy, but this would be very convenient. do this until that is resolved.
     num_potential_joints = ((grid_size**2)-1)
     genotype_len = num_potential_joints*14
-    internal_params = nprng.standard_normal(genotype_len)
-    return ArrayGenotype(internal_params)
+    params_array = nprng.standard_normal(genotype_len)
+    return ArrayGenotype(params_array)
 
 
 def develop(genotype: ArrayGenotype) -> Brain:
     #genotype.genotype.finalize()
-    return genotype.internal_params
+    return genotype.params_array
 
 class ArrayGenotypeSerializer(Serializer[ArrayGenotype]):
     @classmethod
@@ -59,7 +59,7 @@ class ArrayGenotypeSerializer(Serializer[ArrayGenotype]):
         int_ids = []
         for obj in objects:
             id = await Ndarray1xnSerializer.to_database(
-                session, [obj.internal_params]
+                session, [obj.params_array]
             )
             int_ids += id
         assert len(int_ids) == len(objects)
@@ -94,11 +94,11 @@ class ArrayGenotypeSerializer(Serializer[ArrayGenotype]):
         )
 
         int_param_ids = [a.internal_weights for a in arrays]
-        internal_params = [(await Ndarray1xnSerializer.from_database(session, [id]))[0] for id in int_param_ids]
+        params_array = [(await Ndarray1xnSerializer.from_database(session, [id]))[0] for id in int_param_ids]
 
         genotypes: List[ArrayGenotype] = [
             ArrayGenotype(np.array(int_param))
-            for int_param in internal_params
+            for int_param in params_array
         ]
 
         return genotypes

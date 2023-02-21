@@ -136,7 +136,7 @@ class RevDEOptimizer(ABC, Process):
             max_idx = np.argmax(self.__latest_fitnesses)
             best_controller = self.__latest_population[max_idx]
             max_fitness = self.__latest_fitnesses[max_idx]
-            initial_fitness = max_fitness
+            initial_fitness = self.__latest_fitnesses[0]
 
         while self.__safe_must_do_next_gen():
             rng = np.random.Generator(

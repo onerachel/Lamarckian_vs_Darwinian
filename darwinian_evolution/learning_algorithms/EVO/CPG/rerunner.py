@@ -21,14 +21,14 @@ class ModularRobotRerunner:
         :param control_frequency: Control frequency for the simulation. See `Batch` class from physics running.
         """
         batch = Batch(
-            simulation_time=30,
+            simulation_time=60,
             sampling_frequency=5,
             control_frequency=control_frequency,
         )
 
         actor, self._controller = robot.make_actor_and_controller()
 
-        env = Environment(EnvironmentActorController(self._controller, [(1.0, -1.0), (0.0, -2.0)], steer=False))
+        env = Environment(EnvironmentActorController(self._controller, [(1.0, -1.0), (0.0, -2.0)], steer=True))
         bounding_box = actor.calc_aabb()
         env.actors.append(
             PosedActor(
@@ -47,20 +47,8 @@ class ModularRobotRerunner:
         await runner.run_batch(batch, rs)
 
 
-def check_target(coord, target, target_range):
-    if abs(coord[0]-target[0]) < target_range and abs(coord[1]-target[1]) < target_range:
-        return True
-    else:
-        return False
-
-def compute_distance(point_a, point_b):
-    return math.sqrt(
-        (point_a[0] - point_b[0]) ** 2 +
-        (point_a[1] - point_b[1]) ** 2
-    )
 
 if __name__ == "__main__":
     print(
         "This file cannot be ran as a script. Import it and use the contained classes instead."
     )
-

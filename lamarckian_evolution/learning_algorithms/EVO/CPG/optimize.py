@@ -30,7 +30,7 @@ async def main(body, brain, gen, num) -> None:
     SAMPLING_FREQUENCY = 5
     CONTROL_FREQUENCY = 5
 
-    fileh = logging.FileHandler("lamarckian_database/exp.log")
+    fileh = logging.FileHandler("lamarc_sex_database/exp.log")
     formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] [%(module)s] %(message)s")
     fileh.setFormatter(formatter)
 
