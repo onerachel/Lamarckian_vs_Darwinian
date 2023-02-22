@@ -15,7 +15,7 @@ async def main() -> None:
     # number of initial mutations for body and brain CPPNWIN networks
     NUM_INITIAL_MUTATIONS = 10
 
-    SIMULATION_TIME = 60
+    SIMULATION_TIME = 30
     SAMPLING_FREQUENCY = 5
     CONTROL_FREQUENCY = 5
 
