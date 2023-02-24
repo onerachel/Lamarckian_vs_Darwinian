@@ -4,19 +4,19 @@ import math
 import pickle
 from random import Random
 from typing import List, Tuple
-import numpy as np
 
 import multineat
 import revolve2.core.optimization.ea.generic_ea.population_management as population_management
 import revolve2.core.optimization.ea.generic_ea.selection as selection
 import sqlalchemy
+from array_genotype.array_genotype import ArrayGenotype
+from revolve2.genotypes.cppnwin import Genotype as CppnwinGenotype
 from genotype import Genotype, GenotypeSerializer, crossover, mutate
 from pyrr import Quaternion, Vector3
 from revolve2.core.database import IncompatibleError
 from revolve2.core.database.serializers import FloatSerializer
 from revolve2.core.optimization import DbId
 from _optimizer import EAOptimizer
-#from revolve2.core.optimization.ea.generic_ea import EAOptimizer
 from revolve2.core.physics.running import (
     ActorState,
     Batch,
@@ -24,6 +24,8 @@ from revolve2.core.physics.running import (
     PosedActor,
     Runner,
 )
+from revolve2.core.modular_robot.brains import (
+    BrainCpgNetworkStatic, make_cpg_network_structure_neighbour)
 from learning_algorithms.EVO.CPG.optimize import main as learn_controller
 from revolve2.runners.mujoco import LocalRunner
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -39,8 +41,6 @@ from learning_algorithms.EVO.CPG.optimizer import Optimizer as ControllerOptimiz
 from revolve2.core.physics.environment_actor_controller import (
     EnvironmentActorController,
 )
-from revolve2.core.modular_robot.brains import (
-    BrainCpgNetworkStatic, make_cpg_network_structure_neighbour)
 import logging
 
 class Optimizer(EAOptimizer[Genotype, float]):
@@ -145,6 +145,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
         control_frequency: float,
         num_generations: int,
         offspring_size: int,
+        grid_size: int
     ) -> bool:
         """
         Try to initialize this class async from a database.
@@ -209,6 +210,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
         self._sampling_frequency = sampling_frequency
         self._control_frequency = control_frequency
         self._num_generations = num_generations
+        self._grid_size = grid_size
 
         return True
 
@@ -259,9 +261,10 @@ class Optimizer(EAOptimizer[Genotype, float]):
         final_fitnesses = []
         starting_fitnesses = []
 
-        new_genotypes = genotypes.copy()
-        body_genotypes = [genotype.body for genotype in new_genotypes]
-        brain_genotypes = [genotype.brain for genotype in new_genotypes]
+        new_genotypes = []
+
+        body_genotypes = [genotype.body for genotype in genotypes]
+        brain_genotypes = [genotype.brain for genotype in genotypes]
 
         for body_num, (body_genotype, brain_genotype) in enumerate(zip(body_genotypes, brain_genotypes)):
             body = body_develop(body_genotype)
@@ -294,10 +297,11 @@ class Optimizer(EAOptimizer[Genotype, float]):
                 brain_params.append(brain_genotype.params_array[
                     idx*14 + rel_pos
                 ])
-                
+
             logging.info("Starting optimization of the controller for morphology num: " + str(body_num))
             final_fitness = 0.0
             starting_fitness = 0.0
+            new_params = brain_genotype.params_array.copy()
             # check that the morphology has at least one active hinge. Otherwise the maximum fitness is 0
             if len(body.find_active_hinges()) <= 0:
                 logging.info("Morphology num " + str(body_num) + " has no active hinges")
@@ -306,7 +310,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
                 for hinge, learned_weight in zip(active_hinges, learned_params[:len(active_hinges)]):
                     pos = body.grid_position(hinge)
                     cpg_idx = int(pos[0] + pos[1] * self._grid_size + self._grid_size**2 / 2)
-                    brain_genotype.params_array[
+                    new_params[
                         cpg_idx*14
                     ] = learned_weight
 
@@ -319,10 +323,14 @@ class Optimizer(EAOptimizer[Genotype, float]):
                     cpg_idx2 = int(pos2[0] + pos2[1] * self._grid_size + self._grid_size**2 / 2)
                     rel_pos = relative_pos(pos1[:2], pos2[:2])
                     idx = max(cpg_idx1, cpg_idx2)
-                    brain_genotype.params_array[
+                    new_params[
                         idx*14 + rel_pos
                     ] = connection_weight
-                    
+                
+            new_body = CppnwinGenotype(body_genotype.genotype)
+            new_brain = ArrayGenotype(new_params)
+            new_genotypes.append(Genotype(new_body, new_brain))
+
             final_fitnesses.append(final_fitness)
             starting_fitnesses.append(starting_fitness)
 

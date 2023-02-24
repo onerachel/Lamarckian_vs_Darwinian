@@ -26,7 +26,7 @@ import argparse
 async def main(record_dir: Optional[str], record: bool = False) -> None:
 
     """Run the script."""
-    db = open_async_database_sqlite('darw_sex_database/')
+    db = open_async_database_sqlite('darw_asex_database/')
     async with AsyncSession(db) as session:
         individuals = (
             (

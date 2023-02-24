@@ -15,20 +15,20 @@ async def main() -> None:
     # number of initial mutations for body and brain CPPNWIN networks
     NUM_INITIAL_MUTATIONS = 10
 
-    SIMULATION_TIME = 30
+    SIMULATION_TIME = 60
     SAMPLING_FREQUENCY = 5
     CONTROL_FREQUENCY = 5
 
     POPULATION_SIZE = 50
     OFFSPRING_SIZE = 25
-    NUM_GENERATIONS = 30
+    NUM_GENERATIONS = 29
 
     GRID_SIZE = 22
 
     # database
-    database = open_async_database_sqlite("./lamarc_sex_database", create=True)
+    database = open_async_database_sqlite("./lamarc_asex_database", create=True)
 
-    fileh = logging.FileHandler("lamarc_sex_database/exp.log")
+    fileh = logging.FileHandler("lamarc_asex_database/exp.log")
     formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] [%(module)s] %(message)s")
     fileh.setFormatter(formatter)
 
@@ -65,6 +65,7 @@ async def main() -> None:
         control_frequency=CONTROL_FREQUENCY,
         num_generations=NUM_GENERATIONS,
         offspring_size=OFFSPRING_SIZE,
+        grid_size=GRID_SIZE
     )
     if maybe_optimizer is not None:
         optimizer = maybe_optimizer
