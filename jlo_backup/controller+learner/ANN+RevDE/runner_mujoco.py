@@ -164,18 +164,36 @@ class LocalRunner(Runner):
         env_mjcf.option.gravity = [0, 0, -9.81]
 
         env_mjcf.worldbody.add(
-            "geom",
-            name="ground",
-            type="plane",
-            size=[10, 10, 1],
-            rgba=[0.2, 0.2, 0.2, 1],
-        )
-        env_mjcf.worldbody.add(
             "light",
             pos=[0, 0, 100],
             ambient=[0.5, 0.5, 0.5],
             directional=True,
             castshadow=False,
+        )
+        env_mjcf.asset.add(
+            "texture",
+            name="grid",
+            type="2d",
+            builtin="checker",
+            width="512",
+            height="512",
+            rgb1=".1 .2 .3",
+            rgb2=".2 .3 .4",
+        )
+        env_mjcf.asset.add(
+            "material",
+            name="grid",
+            texture="grid",
+            texrepeat="1 1",
+            texuniform="true",
+            reflectance=".2"
+        )
+        env_mjcf.worldbody.add(
+            "geom",
+            name="ground",
+            size=[10, 10, 1],
+            type="plane",
+            material="grid",
         )
         env_mjcf.visual.headlight.active = 0
 

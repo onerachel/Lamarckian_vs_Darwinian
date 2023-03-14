@@ -15,18 +15,13 @@ class Actor(nn.Module):
             act_dim: number of actuators in output
         """
         super().__init__()
-        self.pi_encoder = ObservationEncoder(obs_dim=obs_dim)
-        self.mean_layer = nn.Linear(32, act_dim)
-        nn.init.orthogonal_(self.mean_layer.weight, 0.01)
-        nn.init.constant_(self.mean_layer.bias, 0)
-        self.std_layer = nn.Parameter(torch.zeros(act_dim))
+        self.obs_encoder = ObservationEncoder(obs_dim=obs_dim)
+        self.action_layer = nn.Linear(32, act_dim)
 
     def forward(self, obs):
-        pi_obs = self.pi_encoder(obs)
-        mean = self.mean_layer(pi_obs)
-        std = torch.exp(self.std_layer)
-        action_prob = Normal(mean, std)
-        return action_prob
+        pi_obs = self.obs_encoder(obs)
+        action = self.action_layer(pi_obs)
+        return action
 
 class SingleObservationEncoder(nn.Module):
     def __init__(self, obs_dim: int):

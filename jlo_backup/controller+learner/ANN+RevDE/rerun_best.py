@@ -42,7 +42,7 @@ async def main() -> None:
         print(f"fitness: {best_individual.fitness}")
         print(f"params: {params}")
 
-        body = gecko()
+        body = penguin()
 
         actor, dof_ids = body.to_actor()
         active_hinges_unsorted = body.find_active_hinges()

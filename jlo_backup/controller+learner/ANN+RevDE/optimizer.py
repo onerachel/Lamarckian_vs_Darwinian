@@ -87,8 +87,8 @@ class Optimizer(RevDEOptimizer):
 
         parameters = self._network_structure.parameters()
         vector = torch.nn.utils.parameters_to_vector(parameters)
-        stdv = 1. / math.sqrt(vector.shape[0])
-        initial_population = (-stdv - stdv) * torch.rand((population_size, vector.shape[0])) + stdv
+        range = 1.0
+        initial_population = (-range - range) * torch.rand((population_size, vector.shape[0])) + range
 
         await super().ainit_new(
             database=database,

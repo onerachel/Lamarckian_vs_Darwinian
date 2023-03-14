@@ -8,6 +8,7 @@ from typing import List
 import numpy as np
 import numpy.typing as npt
 import torch
+from config import ACTION_CONSTRAINT
 from network import Actor
 from revolve2.actor_controller import ActorController
 from revolve2.serialization import SerializeError, StaticData
@@ -48,9 +49,8 @@ class NNcontroller(ActorController):
         """
         Get the target position for the motors of the body
         """
-        action_prob = self._actor(observation)
-        action = action_prob.sample()
-        action = torch.clip(action, -0.8, 0.8)
+        action = self._actor(observation)
+        action = torch.clip(action, -ACTION_CONSTRAINT, ACTION_CONSTRAINT)
         return action
     
     # TODO

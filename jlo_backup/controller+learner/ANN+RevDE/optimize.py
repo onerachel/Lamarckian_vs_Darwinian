@@ -29,7 +29,7 @@ async def main() -> None:
     body = args.body
 
     POPULATION_SIZE = 10
-    NUM_GENERATIONS = 20
+    NUM_GENERATIONS = 35 #20
     SCALING = 0.5
     CROSS_PROB = 0.9
 
