@@ -664,9 +664,12 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
                     absolute_size = mm.num_modules,
                     proportion = compute_proportion(mm),
                     num_bricks = mm.num_bricks,
-                    rel_num_limbs = mm.limbs,
+                    rel_num_limbs = mm.rel_num_limbs,
                     symmetry = mm.symmetry,
-                    branching = mm.branching
+                    branching = mm.branching,
+                    coverage = mm.coverage,
+                    rel_num_bricks = mm.rel_num_bricks,
+                    rel_num_hinges = mm.rel_num_hinges,
                 )
                 for i, g_id, s_id, f_id, mm in zip(new_individuals, genotype_ids, new_starting_fitness_ids, new_final_fitness_ids, measures)
             ]
@@ -741,4 +744,7 @@ class DbEAOptimizerIndividual(DbBase):
     rel_num_limbs = Column(Float, nullable=False)
     symmetry = Column(Float, nullable=False)
     branching = Column(Float, nullable=False)
+    coverage = Column(Float, nullable=False)
+    rel_num_bricks = Column(Float, nullable=False)
+    rel_num_hinges = Column(Float, nullable=False)
     

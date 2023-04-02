@@ -15,7 +15,7 @@ async def main() -> None:
     # number of initial mutations for body and brain CPPNWIN networks
     NUM_INITIAL_MUTATIONS = 10
 
-    SIMULATION_TIME = 30
+    SIMULATION_TIME = 40
     SAMPLING_FREQUENCY = 5
     CONTROL_FREQUENCY = 5
 
@@ -40,7 +40,6 @@ async def main() -> None:
 
     # random number generator
     rng = Random()
-    rng.seed(42)
 
     # unique database identifier for optimizer
     db_id = DbId.root("morphevo")

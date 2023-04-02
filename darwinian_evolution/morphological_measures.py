@@ -549,7 +549,14 @@ class MorphologicalMeasures:
 
         :returns: Length of limbs measurement.
         """
-        return self.double_neighbour_brick_and_active_hinge_proportion
+        m = self.num_modules
+        e = self.num_double_neighbour_bricks + self.num_double_neighbour_active_hinges
+        e_max = m - 2 - self.potential_double_neighbour_bricks_and_active_hinges
+
+        if  m < 3:
+            return 0
+        else:
+            return e / e_max
 
     @property
     def coverage(self) -> float:
@@ -585,3 +592,24 @@ class MorphologicalMeasures:
         :returns: Symmetry measurement.
         """
         return max(self.xy_symmetry, self.xz_symmetry, self.yz_symmetry)
+
+    @property
+    def rel_num_limbs(self) -> float:
+        if self.num_modules >= 6:
+            lmax = (2*(self.num_modules-6))/3+((self.num_modules-6) % 3) + 4
+        else:
+            lmax = self.num_modules - 1
+
+        l = len(self.single_neighbour_bricks) + (self.num_active_hinges - len(self.double_neighbour_active_hinges))
+        if lmax > 0:
+            return l/lmax
+        else:
+            return 0
+        
+    @property
+    def rel_num_bricks(self) -> float:
+        return self.num_bricks / self.num_modules
+    
+    @property 
+    def rel_num_hinges(self) -> float:
+        return self.num_active_hinges / self.num_modules
