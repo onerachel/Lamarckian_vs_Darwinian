@@ -1,4 +1,0 @@
-revolve2-core@ file:///Users/lj/revolve2/core
-multineat@ git+https://github.com/ci-group/MultiNEAT.git@v0.10
-
-[dev]

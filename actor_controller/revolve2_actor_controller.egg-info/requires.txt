@@ -1,4 +1,0 @@
-revolve2-serialization@ file:///Users/lj/revolve2/serialization
-numpy>=1.21.6
-
-[dev]
