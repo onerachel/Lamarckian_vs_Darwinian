@@ -196,7 +196,7 @@ class Optimizer(RevDEOptimizer):
             controller = brain.make_controller(self._body, self._dof_ids)
 
             bounding_box = self._actor.calc_aabb()
-            env = Environment(EnvironmentActorController(controller, self._target_points, steer=True))
+            env = Environment(EnvironmentActorController(controller, self._target_points, steer=False))
             env.static_geometries.extend(self._TERRAIN.static_geometry)
             env.actors.append(
                 PosedActor(
@@ -218,9 +218,10 @@ class Optimizer(RevDEOptimizer):
 
         return np.array(
             [
-                self._calculate_point_navigation(
-                    environment_result, self._target_points
-                )
+                # self._calculate_point_navigation(
+                #     environment_result, self._target_points
+                # )
+                self._calculate_panoramic_rotation(environment_result)
                 for environment_result in batch_results.environment_results
             ]
         )
