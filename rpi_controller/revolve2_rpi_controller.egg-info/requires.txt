@@ -1,0 +1,7 @@
+revolve2-actor-controller@ file:///Users/lj/Lamarckian_Darwinian/actor_controller
+pigpio==1.78
+jsonschema==4.4.0
+adafruit-circuitpython-servokit==1.3.10
+
+[dev]
+types-jsonschema==4.4.1

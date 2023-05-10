@@ -1,0 +1,7 @@
+Metadata-Version: 2.1
+Name: revolve2-genotypes-cppnwin
+Version: 0.3.8b1
+Summary: CPPNWIN genotype for modular robots from Revolve2
+Home-page: https://github.com/ci-group/revolve2
+Author: Computational Intelligence Group Vrije Universiteit
+Provides-Extra: dev

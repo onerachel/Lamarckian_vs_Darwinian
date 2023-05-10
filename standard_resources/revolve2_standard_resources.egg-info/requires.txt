@@ -1,0 +1,4 @@
+revolve2-core@ file:///Users/lj/Lamarckian_Darwinian/core
+noise==1.2.2
+
+[dev]

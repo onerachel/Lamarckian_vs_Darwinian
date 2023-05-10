@@ -16,3 +16,4 @@ pip install -e ./serialization[dev] && \
 pip install -r ./codetools/requirements.txt
 pip install -r ./docs/requirements.txt
 pip install pycairo
+pip install noise

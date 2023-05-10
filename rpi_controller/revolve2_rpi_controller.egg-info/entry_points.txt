@@ -1,0 +1,2 @@
+[console_scripts]
+revolve2_rpi_controller = revolve2.bin.rpi_controller.revolve2_rpi_controller:main

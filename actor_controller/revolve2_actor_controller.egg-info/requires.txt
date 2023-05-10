@@ -1,0 +1,4 @@
+revolve2-serialization@ file:///Users/lj/Lamarckian_Darwinian/serialization
+numpy>=1.21.6
+
+[dev]

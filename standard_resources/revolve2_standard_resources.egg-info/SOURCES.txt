@@ -1,0 +1,11 @@
+setup.py
+revolve2/standard_resources/__init__.py
+revolve2/standard_resources/modular_robots.py
+revolve2/standard_resources/py.typed
+revolve2/standard_resources/terrains.py
+revolve2_standard_resources.egg-info/PKG-INFO
+revolve2_standard_resources.egg-info/SOURCES.txt
+revolve2_standard_resources.egg-info/dependency_links.txt
+revolve2_standard_resources.egg-info/not-zip-safe
+revolve2_standard_resources.egg-info/requires.txt
+revolve2_standard_resources.egg-info/top_level.txt
