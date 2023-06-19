@@ -19,9 +19,9 @@ Steps to install:
 ``` 
 1. git clone git@github.com:onerachel/Lamarckian_vs_Darwinian.git
 2. cd Lamarckian_vs_Darwinian
-3. virtualenv -p=python3.8 .venv
+3. virtualenv .venv
 4. source .venv/bin/activate
-5. ./dev_requirements.sh
+5. ./dev_requirements.sh (first comment out "pip install -e ./runners/isaacgym[dev] && \")
 ``` 
 
 ## Run experiments 
