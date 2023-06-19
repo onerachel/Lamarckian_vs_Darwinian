@@ -1,0 +1,22 @@
+----------------- morphology -----------------
+1. run plot_db_csv.py and plot_db_csv_parent.py to generate "point_nav_parent.csv" and "summary_point_nav.csv" files in ripper2 under "darwinian evolution"
+2. change "value" to "after", "generation_id" to "generation" in "summary_point_nav.csv" and change "parent_individual_id" to "parent_id", "child_individual_id" to "individual_id" in "point_nav_parent.csv"
+3. run compute_morph_distance.py (6-dim based distance, using "dist") or
+compute_treedist_v1.py (tree-edit distance, using "distance") to generate "new_summary.csv" file in ripper2 under "darwinian evolution". Change "parent_distance" to "distance"
+4. run plot_morph_distance.py or plot_tree_distance.py or
+run plot_tree_distance_2d_density_2plots.py or plot_GenFit_Delta.py
+5. run plot_diversity.py
+6. count_dist.py
+(option) boxplot_dist.R & boxplot_dist_mean.R
+
+----------------- performance -----------------
+7. plot_fitness_avg_max_curve.py
+8. plot_fitness_learning_delta.py
+(option) boxplot_final_gen_fitness.R
+
+----------------- behaviour -----------------
+9. plot_trajectory.py
+10. plot_trajectory_map.py
+
+----------------- gene development -----------------
+11. pylogeny tree.cys

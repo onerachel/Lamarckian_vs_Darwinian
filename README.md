@@ -21,7 +21,7 @@ Steps to install:
 2. cd Lamarckian_vs_Darwinian
 3. virtualenv .venv
 4. source .venv/bin/activate
-5. ./dev_requirements.sh (first comment out "pip install -e ./runners/isaacgym[dev] && \")
+5. ./dev_requirements.sh
 ``` 
 
 ## Run experiments 
