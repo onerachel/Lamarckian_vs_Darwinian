@@ -8,9 +8,13 @@ from genotype import random as random_genotype
 from optimizer import Optimizer
 from revolve2.core.database import open_async_database_sqlite
 from revolve2.core.optimization import DbId
+from sqlalchemy.ext.asyncio.session import AsyncSession
+from sqlalchemy.future import select
+from genotype import DbGenotype, GenotypeSerializer, Genotype
+from revolve2.core.database.serializers import FloatSerializer
 
 
-async def main() -> None:
+async def main(old_database) -> None:
     """Run the optimization process."""
     # number of initial mutations for body and brain CPPNWIN networks
     NUM_INITIAL_MUTATIONS = 10
@@ -48,10 +52,7 @@ async def main() -> None:
     innov_db_body = multineat.InnovationDatabase()
     innov_db_brain = multineat.InnovationDatabase()
 
-    initial_population = [
-        random_genotype(innov_db_body, rng, NUM_INITIAL_MUTATIONS, robot_grid_size=GRID_SIZE)
-        for _ in range(POPULATION_SIZE)
-    ]
+    initial_population = await database_population(old_database, POPULATION_SIZE)
 
     maybe_optimizer = await Optimizer.from_database(
         database=database,
@@ -90,8 +91,39 @@ async def main() -> None:
 
     logging.info("Finished optimizing morphology.")
 
+async def database_population(database: str, population_size):
+    db = open_async_database_sqlite(database)
+
+    genotypes = []
+    async with AsyncSession(db) as session:
+
+        genotype_ids = list(range(1, population_size + 1))
+        for id in genotype_ids:
+            genotype_db = (
+                (
+                    await session.execute(
+                        select(DbGenotype).filter(
+                            DbGenotype.id == id
+                        )
+                    )
+                )
+                .all()[0]
+            )[0]
+            genotype = (await GenotypeSerializer.from_database(session, [genotype_db.id]))[0]
+            genotypes.append(genotype)
+
+    return genotypes
 
 if __name__ == "__main__":
     import asyncio
+    import argparse
 
-    asyncio.run(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "database",
+        type=str,
+        help="The database to use for the rerun.",
+    )
+    args = parser.parse_args()
+
+    asyncio.run(main(args.database))

@@ -271,8 +271,8 @@ class LocalRunner(Runner):
             builtin="checker",
             width="512",
             height="512",
-            rgb1=".1 .2 .3",
-            rgb2=".2 .3 .4",
+            rgb1=".2 .2 .2",
+            rgb2=".3 .3 .3",
         )
         env_mjcf.asset.add(
             "material",
@@ -290,7 +290,8 @@ class LocalRunner(Runner):
                     type="plane",
                     pos=[geo.position.x, geo.position.y, geo.position.z],
                     size=[geo.size.x / 2.0, geo.size.y / 2.0, 1.0],
-                    rgba=[geo.color.x, geo.color.y, geo.color.z, 1.0],
+                    rgba=[1., 1., 1., 1.0],
+                    material="grid"
                 )
             elif isinstance(geo, geometry.Heightmap):
                 env_mjcf.asset.add(

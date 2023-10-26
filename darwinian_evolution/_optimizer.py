@@ -397,14 +397,23 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
                 self.__offspring_size,
             )
 
+            # select survivors between old individuals
+            old_survivors = self.__safe_select_survivors(
+                [i.genotype for i in self.__latest_population],
+                self.__latest_fitnesses[1],
+                len(self.__latest_population) - self.__offspring_size,
+            )
+
             # let user create offspring
+            old_losers = [self.__latest_population[i] for i in range(len(self.__latest_population)) if i not in old_survivors]
             offspring = [
                 self.__safe_mutate(
                     self.__safe_crossover(
+                        old_ind.genotype.body,
                         [self.__latest_population[i].genotype for i in s], self.__latest_fitnesses[0][s[0]] >= self.__latest_fitnesses[0][s[1]]
                     )
                 )
-                for s in parent_selections
+                for s, old_ind in zip(parent_selections, old_losers)
             ]
 
             # let user evaluate offspring
@@ -433,13 +442,6 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
                 )
                 for parent_indices, genotype in zip(parent_selections, offspring)
             ]
-
-            # let user select survivors between old and new individuals
-            old_survivors = self.__safe_select_survivors(
-                [i.genotype for i in self.__latest_population],
-                self.__latest_fitnesses[1],
-                len(self.__latest_population) - self.__offspring_size,
-            )
 
             # set ids for new individuals
             for (individual, learned_individual) in zip(new_individuals, new_learned_individuals):
@@ -537,8 +539,8 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
         )
         return parent_selections
 
-    def __safe_crossover(self, parents: List[Genotype], first_best:bool) -> Genotype:
-        genotype = self._crossover(parents, first_best)
+    def __safe_crossover(self, original_body, parents: List[Genotype], first_best:bool) -> Genotype:
+        genotype = self._crossover(original_body, parents, first_best)
         assert type(genotype) == self.__genotype_type
         return genotype
 

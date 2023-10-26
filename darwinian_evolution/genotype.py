@@ -226,12 +226,13 @@ def mutate(
     multineat_rng = _multineat_rng_from_random(rng)
 
     return Genotype(
-        mutate_v1(genotype.body, _MULTINEAT_PARAMS, innov_db_body, multineat_rng),
+        genotype.body,
         brain_mutation(genotype.brain, 0, 0.5, 0.8)
     )
 
 
 def crossover(
+    original_body,
     parent1: Genotype,
     parent2: Genotype,
     rng: Random,
@@ -246,14 +247,7 @@ def crossover(
     :returns: A newly created genotype.
     """
     multineat_rng = _multineat_rng_from_random(rng)
-    body = crossover_v1(
-            parent1.body,
-            parent2.body,
-            _MULTINEAT_PARAMS,
-            multineat_rng,
-            False,
-            False,
-        )
+
     brain = brain_crossover(
             parent1.brain,
             parent2.brain,
@@ -262,7 +256,7 @@ def crossover(
         )
 
     return Genotype(
-        body,
+        original_body,
         brain
     )
 

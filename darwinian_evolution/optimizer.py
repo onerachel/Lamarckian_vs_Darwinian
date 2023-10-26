@@ -245,9 +245,9 @@ class Optimizer(EAOptimizer[Genotype, float]):
     def _must_do_next_gen(self) -> bool:
         return self.generation_index != self._num_generations
 
-    def _crossover(self, parents: List[Genotype], first_best: bool) -> Genotype:
+    def _crossover(self, original_body, parents: List[Genotype], first_best: bool) -> Genotype:
         assert len(parents) == 2
-        return crossover(parents[0], parents[1], self._rng, first_best)
+        return crossover(original_body, parents[0], parents[1], self._rng, first_best)
 
     def _mutate(self, genotype: Genotype) -> Genotype:
         return mutate(genotype, self._innov_db_body, self._innov_db_brain, self._rng)
