@@ -13,6 +13,7 @@ simulation_time=30 secs for rotation task,
 simulation_time=40 secs for point navigation task.
 
 ``` 
+In addition, two control experiments have been conducted. The first one (located under the "fixed_body" branch) involves utilizing the initial 50 robots' bodies from the main experiments, while the second one (located under the "random_body" branch) entails employing random bodies at each generation.
 
 ## Installation 
 Steps to install:
